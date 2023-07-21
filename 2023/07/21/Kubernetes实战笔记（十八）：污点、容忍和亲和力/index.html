@@ -1,0 +1,551 @@
+<!doctype html>
+<html lang="zh"><head>
+<title>Kubernetes实战笔记（十八）：污点、容忍和亲和力 - Oblivion</title>
+<meta charset="UTF-8">
+<meta name="keywords" content="">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+<meta name="referrer" content="no-referrer-when-downgrade">
+
+<link rel="shortcut icon" href="/img/favicon.ico" type="image/x-icon" />
+<meta name="description" content="污点和容忍度基于污点的驱逐:  通过污点和容忍度，可以灵活地让pod避开某些节点或者将pod从某些节点驱逐。   如果Pod不能忍受这类污点，Pod会马上被驱逐 如果Pod能忍受这类污点，但是容忍度中没有指定tolerationSeconds， 则Pod还会一直在这个节点上运行 如果Pod能忍受这类污点，而且指定了tolerationSeconds, 则Pod还能在这个节点上继续运行到指定的时间长">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Kubernetes实战笔记（十八）：污点、容忍和亲和力">
+<meta property="og:url" content="http://jimoblivion.github.io/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/index.html">
+<meta property="og:site_name" content="Oblivion">
+<meta property="og:description" content="污点和容忍度基于污点的驱逐:  通过污点和容忍度，可以灵活地让pod避开某些节点或者将pod从某些节点驱逐。   如果Pod不能忍受这类污点，Pod会马上被驱逐 如果Pod能忍受这类污点，但是容忍度中没有指定tolerationSeconds， 则Pod还会一直在这个节点上运行 如果Pod能忍受这类污点，而且指定了tolerationSeconds, 则Pod还能在这个节点上继续运行到指定的时间长">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/1.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/2.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/3.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/4.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/5.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/6.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/7.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/8.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/9.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/10.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/11.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/12.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/13.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/14.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/15.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/16.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/17.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/18.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/19.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/20.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/21.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/22.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/23.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/24.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/25.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/26.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/27.png">
+<meta property="article:published_time" content="2023-07-21T09:10:16.000Z">
+<meta property="article:modified_time" content="2023-07-21T10:49:20.670Z">
+<meta property="article:author" content="Jim Oblivion">
+<meta property="article:tag" content="k8s">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://jimoblivion.github.io/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/1.png">
+
+<link rel="stylesheet" href="/lib/fancybox/fancybox.css">
+<link rel="stylesheet" href="/lib/mdui_043tiny/mdui.css">
+<link rel="stylesheet" href="/lib/animate/htmleaf-demo.css">
+
+
+<link rel="stylesheet" href="/lib/iconfont/iconfont.css?v=1689937570444">
+
+<link rel="stylesheet" href="/css/style.css?v=1689937570444">
+
+
+
+
+    
+        <link rel="stylesheet" href="/custom.css?v=1689937570444">
+    
+
+
+<!-- { src:'lib/animate/bubbleCursor.js' , async: true}, -->
+
+
+<script src="/lib/animate/jquery.min.js" async></script>
+<script src="/lib/animate/anime.min.js" async></script>
+<script src="/lib/mdui_043tiny/mdui.js" async></script>
+<script src="/lib/fancybox/fancybox.umd.js" async></script>
+<script src="/lib/lax.min.js" async></script>
+
+
+<script async src="/js/app.js?v=1689937570444"></script>
+
+ 
+
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-4D4ZJ9G024"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag("js", new Date());
+
+  gtag("config", "G-4D4ZJ9G024");
+</script>
+
+<meta name="generator" content="Hexo 6.3.0"></head><body class="nexmoe mdui-drawer-body-left"><div id="nexmoe-background"><div class="nexmoe-bg" style="background-image: url(https://ts1.cn.mm.bing.net/th/id/R-C.997519279607967913bbf3747c844cbe?rik=%2fpCwvvYy3jfmXg&riu=http%3a%2f%2fpic.bizhi360.com%2fbbpic%2f13%2f9313.jpg&ehk=9Uo6pHJynbTAoeHTmYJ89LHW2kru29DaJKem17GecGg%3d&risl=&pid=ImgRaw&r=0)"></div><div class="mdui-appbar mdui-shadow-0"><div class="mdui-toolbar"><a class="mdui-btn mdui-btn-icon mdui-ripple" mdui-drawer="{target: &#039;#drawer&#039;, swipe: true}" title="menu"><i class="mdui-icon nexmoefont icon-menu"></i></a><div class="mdui-toolbar-spacer"></div><a class="mdui-btn mdui-btn-icon" href="/" title="Jim Oblivion"><img src="https://img2.baidu.com/it/u=97861670,347009008&amp;fm=253&amp;fmt=auto&amp;app=138&amp;f=JPEG?w=500&amp;h=500" alt="Jim Oblivion"></a></div></div></div><div id="nexmoe-header"><div class="nexmoe-drawer mdui-drawer" id="drawer">
+    <div class="nexmoe-avatar mdui-ripple">
+        <a href="/" title="Jim Oblivion">
+            <img src="https://img2.baidu.com/it/u=97861670,347009008&amp;fm=253&amp;fmt=auto&amp;app=138&amp;f=JPEG?w=500&amp;h=500" alt="Jim Oblivion" alt="Jim Oblivion">
+        </a>
+    </div>
+    <div class="nexmoe-count">
+        <div><span>文章</span>20</div>
+        <div><span>标签</span>19</div>
+        <div><span>分类</span>2</div>
+    </div>
+    <div class="nexmoe-list mdui-list" mdui-collapse="{accordion: true}">
+        
+        <a class="nexmoe-list-item mdui-list-item mdui-ripple false" href="/" title="回到首页">
+            <i class="mdui-list-item-icon nexmoefont icon-home"></i>
+            <div class="mdui-list-item-content">
+                回到首页
+            </div>
+        </a>
+        
+        <a class="nexmoe-list-item mdui-list-item mdui-ripple false" href="/archive.html" title="文章归档">
+            <i class="mdui-list-item-icon nexmoefont icon-container"></i>
+            <div class="mdui-list-item-content">
+                文章归档
+            </div>
+        </a>
+        
+        <a class="nexmoe-list-item mdui-list-item mdui-ripple false" href="/2023/07/12/%E8%B5%9E%E5%8A%A9%E6%88%91" title="给我赞助">
+            <i class="mdui-list-item-icon nexmoefont icon-coffee"></i>
+            <div class="mdui-list-item-content">
+                给我赞助
+            </div>
+        </a>
+        
+        <a class="nexmoe-list-item mdui-list-item mdui-ripple false" href="/about.html" title="关于博主">
+            <i class="mdui-list-item-icon nexmoefont icon-info-circle"></i>
+            <div class="mdui-list-item-content">
+                关于博主
+            </div>
+        </a>
+        
+    </div>
+    
+    
+        
+        
+        
+        
+  <div class="nexmoe-widget-wrap">
+    <h3 class="nexmoe-widget-title">文章分类</h3>
+    <div class="nexmoe-widget">
+
+      <ul class="category-list">
+
+        
+
+
+        
+
+        
+
+        <li class="category-list-item">
+          <a class="category-list-link" href="/categories/Kubernetes安装/">Kubernetes安装</a>
+          <span class="category-list-count">1</span>
+        </li>
+
+        
+
+        <li class="category-list-item">
+          <a class="category-list-link" href="/categories/Kubernetes实战/">Kubernetes实战</a>
+          <span class="category-list-count">18</span>
+        </li>
+
+        
+      </ul>
+
+    </div>
+  </div>
+
+
+    
+        
+        
+  <div class="nexmoe-widget-wrap">
+    <div id="randomtagcloud" class="nexmoe-widget tagcloud nexmoe-rainbow">
+      <a href="/tags/ConfigMap/" style="font-size: 10px;">ConfigMap</a> <a href="/tags/CronJob/" style="font-size: 10px;">CronJob</a> <a href="/tags/DaemonSet/" style="font-size: 10px;">DaemonSet</a> <a href="/tags/EmptyDir/" style="font-size: 10px;">EmptyDir</a> <a href="/tags/HPA/" style="font-size: 10px;">HPA</a> <a href="/tags/HostPath/" style="font-size: 10px;">HostPath</a> <a href="/tags/Ingress/" style="font-size: 10px;">Ingress</a> <a href="/tags/Service/" style="font-size: 10px;">Service</a> <a href="/tags/StatefulSet/" style="font-size: 15px;">StatefulSet</a> <a href="/tags/StorageClass/" style="font-size: 10px;">StorageClass</a> <a href="/tags/deployment/" style="font-size: 10px;">deployment</a> <a href="/tags/docker/" style="font-size: 10px;">docker</a> <a href="/tags/initC/" style="font-size: 10px;">initC</a> <a href="/tags/k8s/" style="font-size: 20px;">k8s</a> <a href="/tags/label/" style="font-size: 10px;">label</a> <a href="/tags/nfs/" style="font-size: 10px;">nfs</a> <a href="/tags/pod/" style="font-size: 15px;">pod</a> <a href="/tags/pv/" style="font-size: 10px;">pv</a> <a href="/tags/pvc/" style="font-size: 10px;">pvc</a>
+    </div>
+    
+      <script>
+        var maxTagcloud = parseInt(17);
+        var tags_length = parseInt(19);
+        var tags_arr = [];
+        for(var i = 0; i < tags_length; i++){
+          tags_arr.push(i);
+        }
+        tags_arr.sort(function (l, r) {
+          return Math.random() > 0.5 ? -1 : 1;
+        });
+        tags_arr = tags_arr.slice(0, maxTagcloud < tags_length ? tags_length - maxTagcloud : 0);
+        for(var tag_i = 0; tag_i < tags_arr.length; tag_i++){
+          document.getElementById("randomtagcloud").children[tags_arr[tag_i]].style.display = 'none';
+        }
+      </script>
+    
+  </div>
+
+    
+        
+        
+        
+        
+        
+  <div class="nexmoe-widget-wrap">
+    <h3 class="nexmoe-widget-title">访问量统计</h3>
+    <div class="nexmoe-widget">
+      <script async src="/js/busuanzi.pure.mini.js"></script>
+      <ul>
+        <li><span class="busuanzi" id="busuanzi_container_site_pv">本站总访问量:<span id="busuanzi_value_site_pv"></span>次</span></li>
+        <li><span class="busuanzi" id="busuanzi_container_site_uv">本站访客数:<span id="busuanzi_value_site_uv"></span>人</span></li>
+      </ul>
+      
+    </div>
+  </div>
+
+    
+        
+   
+    <div class="nexmoe-copyright">
+        &copy; 2023 Jim Oblivion
+        Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>
+        & <a href="https://github.com/theme-nexmoe/hexo-theme-nexmoe" target="_blank">Nexmoe</a>
+        <br><a target="_blank" href="https://beian.miit.gov.cn/">鄂ICP备2020018486号</a>
+<br><a target="_blank" href="https://www.upyun.com/?utm_source=lianmeng&utm_medium=referral">
+
+    </div>
+</div><!-- .nexmoe-drawer --></div><div id="nexmoe-content"><script src="/lib/animate/firework.js" defer></script><canvas class="fireworks" style="position: fixed;left: 0;top: 0;z-index: 10000; pointer-events: none;"></canvas><div class="nexmoe-primary"><div class="nexmoe-post">
+  <article>
+    
+        <div class="nexmoe-post-cover"> 
+            <img src="https://ts1.cn.mm.bing.net/th/id/R-C.997519279607967913bbf3747c844cbe?rik=%2fpCwvvYy3jfmXg&riu=http%3a%2f%2fpic.bizhi360.com%2fbbpic%2f13%2f9313.jpg&ehk=9Uo6pHJynbTAoeHTmYJ89LHW2kru29DaJKem17GecGg%3d&risl=&pid=ImgRaw&r=0" alt="Kubernetes实战笔记（十八）：污点、容忍和亲和力" loading="lazy">
+            <h1>Kubernetes实战笔记（十八）：污点、容忍和亲和力</h1>
+        </div>
+    
+    
+    <div class="nexmoe-post-meta">
+    <div class="nexmoe-rainbow">
+        <a class="nexmoefont icon-calendar-fill">2023年07月21日</a>
+        
+            <a class="nexmoefont icon-appstore-fill -link" href="/categories/Kubernetes%E5%AE%9E%E6%88%98/">Kubernetes实战</a>
+        
+        
+    </div>
+    
+    
+    
+    
+    
+</div>
+
+    <h2 id="污点和容忍度"><a href="#污点和容忍度" class="headerlink" title="污点和容忍度"></a>污点和容忍度</h2><p><font color=SeaGreen><strong>基于污点的驱逐:</strong></font></p>
+<blockquote>
+<p>通过污点和容忍度，可以灵活地让pod避开某些节点或者将pod从某些节点驱逐。</p>
+</blockquote>
+<ul>
+<li>如果Pod不能忍受这类污点，Pod会马上被驱逐</li>
+<li>如果Pod能忍受这类污点，但是容忍度中没有指定tolerationSeconds， 则Pod还会一直在这个节点上运行</li>
+<li>如果Pod能忍受这类污点，而且指定了tolerationSeconds, 则Pod还能在这个节点上继续运行到指定的时间长度。</li>
+<li>当某种条件为真时，节点控制器会自动给节点添加污点。当前内置污点包括：<ul>
+<li>Not-ready: 节点未准备好</li>
+<li>Unreachable: 节点控制器访问不到节点</li>
+<li>Memory-pressure: 节点存在内存压力</li>
+<li>Disk-pressure: 节点存在磁盘压力</li>
+<li>Pid-pressure: 节点的PID压力</li>
+<li>Network-pressure: 节点网络不可用</li>
+<li>Unschedulable: 节点不可调度</li>
+<li>Uninitialized: 如果kubelet启动时指定了一个云平台驱动，它将给当前节点添加一个污点标志位不可用。在cloud-controller-manager的一个控制器初始化这个节点后，kubelet将删除这个污点。</li>
+</ul>
+</li>
+</ul>
+<p><font color=SeaGreen><strong>taint污点</strong></font></p>
+<p><strong>标注在节点上，当我们在一个节点上打上污点以后，k8s会任务尽量不要将pod调度到该节点上，排除该pod上面便是可以容忍该污点，且一个节点可以打多个污点，此时则需要pod容忍所有污点该节点才会被调度。</strong></p>
+<ul>
+<li>污点的影响：<ul>
+<li>NoSchedule: 不能容忍的pod不能被调度到该节点，但是已经存在的节点不会被驱逐</li>
+<li>NoExecute: 不能容忍的节点会被立即清除，能容忍且没有配置</li>
+<li>tolerationSeconds: 未设置，则可以一直运行；设置了3600属性，则该pod还能继续在该节点继续运行3600秒</li>
+</ul>
+</li>
+</ul>
+<p><font color=SeaGreen><strong>toleration容忍</strong></font></p>
+<p><strong>标注在Pod上，当pod被调度时，如果没有配置配置容忍，则该pod不会被调度到有污点的节点上，只有该pod上标注了满足某个节点的所有污点，则会被调度到这些节点。</strong></p>
+<ul>
+<li>比较操作类型<ul>
+<li>Equal: 则意味着必须与污点值做匹配，key&#x2F;value都必须相同，才表示能够容忍该污点</li>
+<li>Exists: 容忍与污点的比较key，不比较value， 不关系value是什么，只要key存在，就表示可以容忍</li>
+</ul>
+</li>
+</ul>
+<h3 id="污点"><a href="#污点" class="headerlink" title="污点"></a>污点</h3><ul>
+<li><p>给节点打上污点</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl taint no k8snode1 memory=low:NoSchedule</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/1.png" class="" width="1">
+</li>
+<li><p>Pod正常运行， 此时原本已经运行的Pod不受影响</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test get po -o wide</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/2.png" class="" width="1"></li>
+<li><p>对Node进行描述</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test describe no k8snode1</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/3.png" class="" width="1">
+</li>
+<li><p>删除Pod</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test delete po nginx-deploy-787859bfbd-j2v5p</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/4.png" class="" width="1">
+</li>
+<li><p>查看节点Pod，因为没有可用节点所以新Pod会一直处于Pending状态</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test get po -o wide</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/5.png" class="" width="1">
+</li>
+<li><p>删除污点</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl taint no k8snode1 memory=low:NoSchedule-</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>查看节点容器状态，pod已经恢复在k8snode1节点上运行</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test get po -o wide</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/6.png" class="" width="1"></li>
+</ul>
+<h3 id="容忍"><a href="#容忍" class="headerlink" title="容忍"></a>容忍</h3><ul>
+<li><p>编辑deploy, 让pod可以容忍memory&#x3D;low的标签。</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test edit deploy nginx-deploy</span><br></pre></td></tr></table></figure>
+
+  <figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">template:</span></span><br><span class="line">  <span class="attr">metadata:</span></span><br><span class="line">    <span class="attr">creationTimestamp:</span> <span class="literal">null</span></span><br><span class="line">    <span class="attr">labels:</span></span><br><span class="line">      <span class="attr">app:</span> <span class="string">nginx-deploy</span></span><br><span class="line">  <span class="attr">spec:</span></span><br><span class="line">    <span class="attr">tolerations:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">key:</span> <span class="string">&quot;memory&quot;</span></span><br><span class="line">      <span class="attr">operator:</span> <span class="string">&quot;Equal&quot;</span></span><br><span class="line">      <span class="attr">value:</span> <span class="string">&quot;low&quot;</span></span><br><span class="line">      <span class="attr">effect:</span> <span class="string">&quot;NoSchedule&quot;</span></span><br></pre></td></tr></table></figure>
+</li>
+<li><p>给节点打上标签</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl taint no k8snode1 memory=low:NoSchedule</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/7.png" class="" width="1">
+</li>
+<li><p>查看最新pod并且删除</p>
+  <img src="/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/8.png" class="" width="1"></li>
+<li><p>删除pod</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test delete po nginx-deploy-75b764c64b-xdtd4</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/9.png" class="" width="1">
+</li>
+<li><p>查看pod又在当前节点创建了新的pod</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test get po -o wide</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/10.png" class="" width="1">
+</li>
+<li><p>修改operator为Exits，和Equal同理，节点Pod还是可以正常创建</p>
+  <figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">tolerations:</span></span><br><span class="line"><span class="bullet">-</span> <span class="attr">effect:</span> <span class="string">NoSchedule</span></span><br><span class="line">  <span class="attr">key:</span> <span class="string">memory</span></span><br><span class="line">  <span class="attr">operator:</span> <span class="string">Exists</span></span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/11.png" class="" width="1"></li>
+</ul>
+<h3 id="修改"><a href="#修改" class="headerlink" title="修改"></a>修改</h3><ul>
+<li><p>去除污点</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl taint no k8snode1 memory=low:NoSchedule-</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>修改</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test edit deploy nginx-deploy</span><br></pre></td></tr></table></figure>
+
+  <figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">tolerations:</span></span><br><span class="line"><span class="bullet">-</span> <span class="attr">effect:</span> <span class="string">NoExecute</span></span><br><span class="line">  <span class="attr">key:</span> <span class="string">memory</span></span><br><span class="line">  <span class="attr">operator:</span> <span class="string">Exists</span></span><br></pre></td></tr></table></figure>
+</li>
+<li><p>新增污点</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl taint no k8snode1 memory=low:NoExecute</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>查看容器状态，因为nginx-deploy添加了容忍所以可以存活，其他pod则被驱逐</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test get po -o wide</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/12.png" class="" width="1">
+</li>
+<li><p>修改nginx-deploy新增参数</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test edit deploy nginx-deploy</span><br></pre></td></tr></table></figure>
+
+  <figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">tolerations:</span></span><br><span class="line"><span class="bullet">-</span> <span class="attr">effect:</span> <span class="string">NoExecute</span></span><br><span class="line">  <span class="attr">key:</span> <span class="string">memory</span></span><br><span class="line">  <span class="attr">operator:</span> <span class="string">Exists</span></span><br><span class="line">  <span class="attr">tolerationSeconds:</span> <span class="number">15</span></span><br></pre></td></tr></table></figure>
+</li>
+<li><p>等待15秒后，查看Pod的运行状态，出现Pod频繁被销毁重新创建的情况</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test get po -o wide</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/13.png" class="" width="1">
+</li>
+<li><p>去掉污点</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl taint no k8snode1 memory=low:NoExecute-</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>查看pod运行情况</p>
+  <img src="/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/14.png" class="" width="1"></li>
+</ul>
+<h2 id="亲和力"><a href="#亲和力" class="headerlink" title="亲和力"></a>亲和力</h2><p><font color=SeaGreen><strong>Affinity亲和力</strong></font></p>
+<ul>
+<li>类似于nodeSelector，它使你可以根据节点上的标签来约束Pod可以调度到那些节点上:<ul>
+<li>requireDuringSchedulingIgnoredDuringExecution: 调度器只有在规则被满足的时候才能执行调度。</li>
+<li>preferredDuringSchedulingIgnoredDuringExecution: 调度器会尝试寻找满足对应规则的节点。如果找不到匹配的节点，调度器仍然会调度该pod.</li>
+</ul>
+</li>
+<li>匹配类型:<ul>
+<li>In 满足一个就行</li>
+<li>NotIn 一个都不能满足，反亲和性</li>
+<li>Exists 只要存在，就满足</li>
+<li>DoesNotExist 只有存在，才满足</li>
+<li>Gt 必须要大于节点上 数值才满足</li>
+<li>Lt 必须小于节点上的数值才满足</li>
+</ul>
+</li>
+</ul>
+<h3 id="节点的亲和性"><a href="#节点的亲和性" class="headerlink" title="节点的亲和性"></a>节点的亲和性</h3><ul>
+<li><p>删除master的污点标签，让master也可以调度<br>  <code>Taints:             node-role.kubernetes.io/master:NoSchedule</code></p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl taint no node node-role.kubernetes.io/master:NoSchedule-</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/15.png" class="" width="1">
+</li>
+<li><p>给k8snode1节点打标签</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl label no k8snode1 kubernetes.io/os=linux</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/16.png" class="" width="1">
+
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">kubectl label no node label-1=key-1</span><br><span class="line">kubectl label no k8snode1  label-2=key-2</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/17.png" class="" width="1">
+</li>
+<li><p>编辑deploy</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test edit deploy nginx-deploy</span><br></pre></td></tr></table></figure>
+
+  <figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">template:</span></span><br><span class="line">  <span class="attr">metadata:</span></span><br><span class="line">    <span class="attr">creationTimestamp:</span> <span class="literal">null</span></span><br><span class="line">    <span class="attr">labels:</span></span><br><span class="line">      <span class="attr">app:</span> <span class="string">nginx-deploy</span></span><br><span class="line">  <span class="attr">spec:</span></span><br><span class="line">    <span class="attr">affinity:</span></span><br><span class="line">      <span class="attr">nodeAffinity:</span></span><br><span class="line">        <span class="attr">requiredDuringSchedulingIgnoredDuringExecution:</span></span><br><span class="line">          <span class="attr">nodeSelectorTerms:</span></span><br><span class="line">          <span class="bullet">-</span> <span class="attr">matchExpressions:</span></span><br><span class="line">            <span class="bullet">-</span> <span class="attr">key:</span> <span class="string">kubernetes.io/os</span></span><br><span class="line">              <span class="attr">operator:</span> <span class="string">In</span></span><br><span class="line">              <span class="attr">values:</span></span><br><span class="line">              <span class="bullet">-</span> <span class="string">linux</span></span><br><span class="line">        <span class="attr">preferredDuringSchedulingIgnoredDuringExecution:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">weight:</span> <span class="number">1</span></span><br><span class="line">          <span class="attr">preference:</span></span><br><span class="line">            <span class="attr">matchExpressions:</span></span><br><span class="line">            <span class="bullet">-</span> <span class="attr">key:</span> <span class="string">label-1</span></span><br><span class="line">              <span class="attr">operator:</span> <span class="string">In</span></span><br><span class="line">              <span class="attr">values:</span></span><br><span class="line">              <span class="bullet">-</span> <span class="string">key-1</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">weight:</span> <span class="number">50</span> <span class="comment"># 权重越高，后续调到这个节点的可能更高</span></span><br><span class="line">          <span class="attr">preference:</span></span><br><span class="line">            <span class="attr">matchExpressions:</span></span><br><span class="line">            <span class="bullet">-</span> <span class="attr">key:</span> <span class="string">label-2</span></span><br><span class="line">              <span class="attr">operator:</span> <span class="string">In</span></span><br><span class="line">              <span class="attr">values:</span></span><br><span class="line">              <span class="bullet">-</span> <span class="string">key-2</span></span><br></pre></td></tr></table></figure>
+</li>
+<li><p>编辑完成后查看pod，此时pod都运行在了k8snode1节点上</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test get po -o wide</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/18.png" class="" width="1">
+</li>
+<li><p>修改标签的权重</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test edit deploy nginx-deploy</span><br></pre></td></tr></table></figure>
+
+  <figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="bullet">-</span> <span class="attr">weight:</span> <span class="number">50</span></span><br><span class="line">  <span class="attr">preference:</span></span><br><span class="line">    <span class="attr">matchExpressions:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">key:</span> <span class="string">label-1</span></span><br><span class="line">      <span class="attr">operator:</span> <span class="string">In</span></span><br><span class="line">      <span class="attr">values:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">key-1</span></span><br><span class="line"><span class="bullet">-</span> <span class="attr">weight:</span> <span class="number">1</span> <span class="comment"># 权重越高，后续调到这个节点的可能更高</span></span><br><span class="line">  <span class="attr">preference:</span></span><br><span class="line">    <span class="attr">matchExpressions:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">key:</span> <span class="string">label-2</span></span><br><span class="line">      <span class="attr">operator:</span> <span class="string">In</span></span><br><span class="line">      <span class="attr">values:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">key-2</span></span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/19.png" class="" width="1"></li>
+<li><p>查看pod状态<code>kubectl -n zy-test get po -o wide</code>， 最终pod都运行到了master节点上</p>
+  <img src="/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/20.png" class="" width="1"></li>
+<li><p>修改标签的亲和性</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test edit deploy nginx-deploy</span><br></pre></td></tr></table></figure>
+
+  <figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="bullet">-</span> <span class="attr">weight:</span> <span class="number">1</span></span><br><span class="line">  <span class="attr">preference:</span></span><br><span class="line">    <span class="attr">matchExpressions:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">key:</span> <span class="string">label-1</span></span><br><span class="line">      <span class="attr">operator:</span> <span class="string">NotIn</span></span><br><span class="line">      <span class="attr">values:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">key-1</span></span><br><span class="line"><span class="bullet">-</span> <span class="attr">weight:</span> <span class="number">50</span> <span class="comment"># 权重越高，后续调到这个节点的可能更高</span></span><br><span class="line">  <span class="attr">preference:</span></span><br><span class="line">    <span class="attr">matchExpressions:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">key:</span> <span class="string">label-2</span></span><br><span class="line">      <span class="attr">operator:</span> <span class="string">In</span></span><br><span class="line">      <span class="attr">values:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">key-2</span></span><br></pre></td></tr></table></figure>
+</li>
+<li><p>查看pod状态<code>kubectl -n zy-test get po -o wide</code>，最终节点又重新部署到了node节点上</p>
+  <img src="/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/21.png" class="" width="1"></li>
+</ul>
+<h3 id="Pod的亲和力"><a href="#Pod的亲和力" class="headerlink" title="Pod的亲和力"></a>Pod的亲和力</h3><ul>
+<li><p>参数说明</p>
+  <figure class="highlight txt"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">podAffinity: 将与指定pod亲和力相匹配的pod部署在同一个节点。</span><br><span class="line">podAntiAffinity: 根据策略尽量部署或不部署到一起。</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>给节点打标签</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">kubectl label no k8snode1 topology.kubernetes.io/zone=V</span><br><span class="line">kubectl label no node topology.kubernetes.io/zone=R</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>确认标签</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl get no --show-labels</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/22.png" class="" width="1">
+</li>
+<li><p>创建yml</p>
+  <figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">---</span></span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">with-pod-affinity-s1</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">&quot;zy-test&quot;</span></span><br><span class="line">  <span class="attr">labels:</span></span><br><span class="line">    <span class="attr">security:</span> <span class="string">S1</span></span><br><span class="line">    <span class="attr">topology.kubernetes.io/zone:</span> <span class="string">R</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">affinity:</span></span><br><span class="line">    <span class="attr">podAffinity:</span></span><br><span class="line">      <span class="attr">requiredDuringSchedulingIgnoredDuringExecution:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">labelSelector:</span></span><br><span class="line">          <span class="attr">matchExpressions:</span></span><br><span class="line">          <span class="bullet">-</span> <span class="attr">key:</span> <span class="string">security</span></span><br><span class="line">            <span class="attr">operator:</span> <span class="string">In</span></span><br><span class="line">            <span class="attr">values:</span></span><br><span class="line">            <span class="bullet">-</span> <span class="string">S1</span></span><br><span class="line">        <span class="attr">topologyKey:</span> <span class="string">topology.kubernetes.io/zone</span></span><br><span class="line">    <span class="attr">podAntiAffinity:</span></span><br><span class="line">      <span class="attr">preferredDuringSchedulingIgnoredDuringExecution:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">weight:</span> <span class="number">100</span></span><br><span class="line">        <span class="attr">podAffinityTerm:</span></span><br><span class="line">          <span class="attr">labelSelector:</span></span><br><span class="line">            <span class="attr">matchExpressions:</span></span><br><span class="line">            <span class="bullet">-</span> <span class="attr">key:</span> <span class="string">security</span></span><br><span class="line">              <span class="attr">operator:</span> <span class="string">In</span></span><br><span class="line">              <span class="attr">values:</span></span><br><span class="line">              <span class="bullet">-</span> <span class="string">S2</span></span><br><span class="line">          <span class="attr">topologyKey:</span> <span class="string">topology.kubernetes.io/zone</span></span><br><span class="line">  <span class="attr">containers:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">with-pod-affinity</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">registry.k8s.io/pause:2.0</span></span><br><span class="line"><span class="meta">---</span></span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">with-pod-affinity-s2</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">&quot;zy-test&quot;</span></span><br><span class="line">  <span class="attr">labels:</span></span><br><span class="line">    <span class="attr">security:</span> <span class="string">S2</span></span><br><span class="line">    <span class="attr">topology.kubernetes.io/zone:</span> <span class="string">V</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">affinity:</span></span><br><span class="line">    <span class="attr">podAffinity:</span></span><br><span class="line">      <span class="attr">requiredDuringSchedulingIgnoredDuringExecution:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">labelSelector:</span></span><br><span class="line">          <span class="attr">matchExpressions:</span></span><br><span class="line">          <span class="bullet">-</span> <span class="attr">key:</span> <span class="string">security</span></span><br><span class="line">            <span class="attr">operator:</span> <span class="string">In</span></span><br><span class="line">            <span class="attr">values:</span></span><br><span class="line">            <span class="bullet">-</span> <span class="string">S1</span></span><br><span class="line">        <span class="attr">topologyKey:</span> <span class="string">topology.kubernetes.io/zone</span></span><br><span class="line">    <span class="attr">podAntiAffinity:</span></span><br><span class="line">      <span class="attr">preferredDuringSchedulingIgnoredDuringExecution:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">weight:</span> <span class="number">100</span></span><br><span class="line">        <span class="attr">podAffinityTerm:</span></span><br><span class="line">          <span class="attr">labelSelector:</span></span><br><span class="line">            <span class="attr">matchExpressions:</span></span><br><span class="line">            <span class="bullet">-</span> <span class="attr">key:</span> <span class="string">security</span></span><br><span class="line">              <span class="attr">operator:</span> <span class="string">In</span></span><br><span class="line">              <span class="attr">values:</span></span><br><span class="line">              <span class="bullet">-</span> <span class="string">S2</span></span><br><span class="line">          <span class="attr">topologyKey:</span> <span class="string">topology.kubernetes.io/zone</span></span><br><span class="line">  <span class="attr">containers:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">with-pod-affinity</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">registry.k8s.io/pause:2.0</span></span><br><span class="line"></span><br></pre></td></tr></table></figure>
+</li>
+<li><p>查看pod状态，pod都被调度到了k8snode1节点上。</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test get po -o wide</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/23.png" class="" width="1"></li>
+<li><p>删除pod</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test delete  po with-pod-affinity-s1 with-pod-affinity-s2</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/24.png" class="" width="1"></li>
+<li><p>删除k8snode1节点上的标签<code>topology.kubernetes.io/zone</code></p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl label no k8snode1 topology.kubernetes.io/zone-</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/25.png" class="" width="1"></li>
+<li><p>重新创建pod</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl create -f affinity-pod.yml</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/26.png" class="" width="1"></li>
+<li><p>pod已经被调度到了node节点</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test get po -o wide</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/27.png" class="" width="1"></li>
+</ul>
+
+    <p><img src="" loading="lazy"></p>
+
+  </article>
+
+  
+      
+    <div class="nexmoe-post-copyright">
+        <strong>本文作者：</strong>Jim Oblivion<br>
+        <strong>本文链接：</strong><a href="http://jimoblivion.github.io/2023/07/21/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B/" title="http:&#x2F;&#x2F;jimoblivion.github.io&#x2F;2023&#x2F;07&#x2F;21&#x2F;Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B&#x2F;" target="_blank" rel="noopener">http:&#x2F;&#x2F;jimoblivion.github.io&#x2F;2023&#x2F;07&#x2F;21&#x2F;Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%85%AB%EF%BC%89%EF%BC%9A%E6%B1%A1%E7%82%B9%E3%80%81%E5%AE%B9%E5%BF%8D%E5%92%8C%E4%BA%B2%E5%92%8C%E5%8A%9B&#x2F;</a><br>
+        
+            <strong>版权声明：</strong>本文采用 <a href="https://creativecommons.org/licenses/by-nc-sa/3.0/cn/deed.zh" target="_blank">CC BY-NC-SA 3.0 CN</a> 协议进行许可
+
+        
+    </div>
+
+
+  
+  
+  <div class="nexmoe-post-meta nexmoe-rainbow">
+   
+    
+        <a class="nexmoefont icon-tag-fill -none-link" href="/tags/k8s/" rel="tag">k8s</a>
+    
+</div>
+  
+  
+    <script async src="/js/copy-codeblock.js?v=1689937570388"></script>
+  
+
+  
+      <div class="nexmoe-post-footer">
+          放弃了就不该后悔，失去了就不该回忆。
+
+      </div>
+  
+</div></div><div class="nexmoe-post-right">    <div class="nexmoe-fixed">
+        <div class="nexmoe-tool">
+
+            
+
+            
+            
+            <button class="mdui-fab catalog" style="overflow:unset;">
+                <i class="nexmoefont icon-i-catalog"></i>
+                <div class="nexmoe-toc">
+                    <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B1%A1%E7%82%B9%E5%92%8C%E5%AE%B9%E5%BF%8D%E5%BA%A6"><span class="toc-number">1.</span> <span class="toc-text">污点和容忍度</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%B1%A1%E7%82%B9"><span class="toc-number">1.1.</span> <span class="toc-text">污点</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%AE%B9%E5%BF%8D"><span class="toc-number">1.2.</span> <span class="toc-text">容忍</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BF%AE%E6%94%B9"><span class="toc-number">1.3.</span> <span class="toc-text">修改</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%B2%E5%92%8C%E5%8A%9B"><span class="toc-number">2.</span> <span class="toc-text">亲和力</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E8%8A%82%E7%82%B9%E7%9A%84%E4%BA%B2%E5%92%8C%E6%80%A7"><span class="toc-number">2.1.</span> <span class="toc-text">节点的亲和性</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Pod%E7%9A%84%E4%BA%B2%E5%92%8C%E5%8A%9B"><span class="toc-number">2.2.</span> <span class="toc-text">Pod的亲和力</span></a></li></ol></li></ol>
+                </div>
+            </button>
+            
+
+            
+
+            <a href="#nexmoe-content" class="backtop toc-link" aria-label="Back To Top" title="top"><button class="mdui-fab mdui-ripple"><i class="nexmoefont icon-caret-top"></i></button></a>
+        </div>
+    </div>
+</div></div><div id="nexmoe-footer"><script src="/lib/animate/fish.js" defer></script><div id="footer-wrap"></div><!--!--></div><div><div id="nexmoe-search-space">
+	<div class="search-container">
+		<div class="search-header">
+			<div class="search-input-container">
+				<input
+					class="search-input"
+					type="text"
+					placeholder="搜索"
+					oninput="sinput();"
+				/>
+			</div>
+			<a class="search-close" onclick="sclose();">×</a>
+		</div>
+		<div class="search-body"></div>
+	</div>
+</div>
+</div><div><script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2058306854838448" crossorigin="anonymous"></script>
+</div></body></html>
