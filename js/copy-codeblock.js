@@ -10,7 +10,7 @@ window.addEventListener('load', () => {
 
     copyWrapper.addEventListener('click', (ev) => {
       const highlightDom = ev.target.parentElement;
-      const code = highlightDom.querySelector('code');
+      const code = highlightDom.querySelector('.code');
 
       let copiedCode = '';
 
