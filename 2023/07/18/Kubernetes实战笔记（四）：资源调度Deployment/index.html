@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="zh"><head>
+<title>Kubernetes实战笔记（四）：资源调度Deployment - Oblivion</title>
+<meta charset="UTF-8">
+<meta name="keywords" content="">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+<meta name="referrer" content="no-referrer-when-downgrade">
+
+<link rel="shortcut icon" href="/img/favicon.ico" type="image/x-icon" />
+<meta name="description" content="说明Deployment是用来管理pod和Replicas pod部署、副本设定、滚动升级、回滚等功能。 创建编辑yml1vim nginx-deploy.yaml  1234567891011121314151617181920212223242526272829303132333435363738394041424344454647484950515253545556575859606162a">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Kubernetes实战笔记（四）：资源调度Deployment">
+<meta property="og:url" content="http://jimoblivion.github.io/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/index.html">
+<meta property="og:site_name" content="Oblivion">
+<meta property="og:description" content="说明Deployment是用来管理pod和Replicas pod部署、副本设定、滚动升级、回滚等功能。 创建编辑yml1vim nginx-deploy.yaml  1234567891011121314151617181920212223242526272829303132333435363738394041424344454647484950515253545556575859606162a">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/1.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/2.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/3.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/4.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/5.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/6.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/7.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/8.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/9.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/10.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/11.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/12.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/13.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/14.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/15.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/16.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/17.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/18.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/19.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/20.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/21.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/22.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/23.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/24.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/25.png">
+<meta property="article:published_time" content="2023-07-18T10:20:17.000Z">
+<meta property="article:modified_time" content="2023-07-19T03:59:28.880Z">
+<meta property="article:author" content="Jim Oblivion">
+<meta property="article:tag" content="k8s">
+<meta property="article:tag" content="deployment">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://jimoblivion.github.io/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/1.png">
+<!-- <link rel="stylesheet" href="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/fancybox/fancybox.css">
+<link rel="stylesheet" href="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/mdui_043tiny/mdui.css">
+<link rel="stylesheet" href="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/animate/htmleaf-demo.css"> -->
+
+<!-- <link href='http://fonts.font.im/css?family=Exo+2:400,500italic' rel='stylesheet' type='text/css'> -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- <link href="https://fonts.googleapis.com/css?family=Noto+Sans+SC:100,300,400,500,700,900" rel="stylesheet"> -->
+<link href="https://fonts.googleapis.com/css2?family=Fredericka+the+Great&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="/lib/fancybox/fancybox.css">
+<link rel="stylesheet" href="/lib/mdui_043tiny/mdui.css">
+<link rel="stylesheet" href="/lib/animate/htmleaf-demo.css">
+
+
+<link rel="stylesheet" href="/lib/iconfont/iconfont.css?v=1690205319860">
+
+<link rel="stylesheet" href="/css/style.css?v=1690205319860">
+
+
+
+
+    
+        <link rel="stylesheet" href="/custom.css?v=1690205319860">
+    
+
+<!-- { src:'lib/animate/jquery.min.js' , async: true},  -->
+<!-- { src:'lib/animate/anime.min.js' , async: true}, -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/2.2.0/anime.min.js"></script>
+<!-- <script src="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/mdui_043tiny/mdui.js"></script>
+<script src="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/fancybox/fancybox.umd.js"></script>
+<script src="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/lax.min.js"></script> -->
+
+<script src="/lib/mdui_043tiny/mdui.js" async></script>
+<script src="/lib/fancybox/fancybox.umd.js" async></script>
+<script src="/lib/lax.min.js" async></script>
+
+
+<script async src="/js/app.js?v=1690205319860"></script>
+
+ 
+
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-4D4ZJ9G024"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag("js", new Date());
+
+  gtag("config", "G-4D4ZJ9G024");
+</script>
+
+<meta name="generator" content="Hexo 6.3.0"></head><body class="nexmoe mdui-drawer-body-left"><div id="nexmoe-background"><div class="nexmoe-bg" style="background-image: url(/img/bg.jpg)"></div><div class="mdui-appbar mdui-shadow-0"><div class="mdui-toolbar"><a class="mdui-btn mdui-btn-icon mdui-ripple" mdui-drawer="{target: &#039;#drawer&#039;, swipe: true}" title="menu"><i class="mdui-icon nexmoefont icon-menu"></i></a><div class="mdui-toolbar-spacer"></div><a class="mdui-btn mdui-btn-icon" href="/" title="Jim Oblivion"><img src="/img/logo.jpg" alt="Jim Oblivion"></a></div></div></div><div id="nexmoe-header"><div class="nexmoe-drawer mdui-drawer" id="drawer">
+    <div class="nexmoe-avatar mdui-ripple">
+        <a href="/" title="Jim Oblivion">
+            <img src="/img/logo.jpg" alt="Jim Oblivion" alt="Jim Oblivion">
+        </a>
+    </div>
+    <div class="nexmoe-count">
+        <div><span>文章</span>24</div>
+        <div><span>标签</span>22</div>
+        <div><span>分类</span>2</div>
+    </div>
+    <div class="nexmoe-list mdui-list" mdui-collapse="{accordion: true}">
+        
+        <a class="nexmoe-list-item mdui-list-item mdui-ripple false" href="/" title="回到首页">
+            <i class="mdui-list-item-icon nexmoefont icon-home"></i>
+            <div class="mdui-list-item-content">
+                回到首页
+            </div>
+        </a>
+        
+        <a class="nexmoe-list-item mdui-list-item mdui-ripple false" href="/archive.html" title="文章归档">
+            <i class="mdui-list-item-icon nexmoefont icon-container"></i>
+            <div class="mdui-list-item-content">
+                文章归档
+            </div>
+        </a>
+        
+        <a class="nexmoe-list-item mdui-list-item mdui-ripple false" href="/2023/07/12/%E8%B5%9E%E5%8A%A9%E6%88%91" title="给我赞助">
+            <i class="mdui-list-item-icon nexmoefont icon-coffee"></i>
+            <div class="mdui-list-item-content">
+                给我赞助
+            </div>
+        </a>
+        
+        <a class="nexmoe-list-item mdui-list-item mdui-ripple false" href="/about" title="关于博主">
+            <i class="mdui-list-item-icon nexmoefont icon-info-circle"></i>
+            <div class="mdui-list-item-content">
+                关于博主
+            </div>
+        </a>
+        
+    </div>
+    
+    
+        
+        
+        
+        
+  <div class="nexmoe-widget-wrap">
+    <h3 class="nexmoe-widget-title">文章分类</h3>
+    <div class="nexmoe-widget">
+
+      <ul class="category-list">
+
+        
+
+
+        
+
+        
+
+        <li class="category-list-item">
+          <a class="category-list-link" href="/categories/Kubernetes安装/">Kubernetes安装</a>
+          <span class="category-list-count">2</span>
+        </li>
+
+        
+
+        <li class="category-list-item">
+          <a class="category-list-link" href="/categories/Kubernetes实战/">Kubernetes实战</a>
+          <span class="category-list-count">21</span>
+        </li>
+
+        
+      </ul>
+
+    </div>
+  </div>
+
+
+    
+        
+        
+  <div class="nexmoe-widget-wrap">
+    <div id="randomtagcloud" class="nexmoe-widget tagcloud nexmoe-rainbow">
+      <a href="/tags/ConfigMap/" style="font-size: 10px;">ConfigMap</a> <a href="/tags/CronJob/" style="font-size: 10px;">CronJob</a> <a href="/tags/DaemonSet/" style="font-size: 10px;">DaemonSet</a> <a href="/tags/EmptyDir/" style="font-size: 10px;">EmptyDir</a> <a href="/tags/HPA/" style="font-size: 10px;">HPA</a> <a href="/tags/HostPath/" style="font-size: 10px;">HostPath</a> <a href="/tags/Ingress/" style="font-size: 10px;">Ingress</a> <a href="/tags/Prometheus/" style="font-size: 10px;">Prometheus</a> <a href="/tags/RBAC/" style="font-size: 10px;">RBAC</a> <a href="/tags/Service/" style="font-size: 10px;">Service</a> <a href="/tags/StatefulSet/" style="font-size: 15px;">StatefulSet</a> <a href="/tags/StorageClass/" style="font-size: 10px;">StorageClass</a> <a href="/tags/deployment/" style="font-size: 10px;">deployment</a> <a href="/tags/docker/" style="font-size: 10px;">docker</a> <a href="/tags/helm/" style="font-size: 10px;">helm</a> <a href="/tags/initC/" style="font-size: 10px;">initC</a> <a href="/tags/k8s/" style="font-size: 20px;">k8s</a> <a href="/tags/label/" style="font-size: 10px;">label</a> <a href="/tags/nfs/" style="font-size: 10px;">nfs</a> <a href="/tags/pod/" style="font-size: 15px;">pod</a> <a href="/tags/pv/" style="font-size: 10px;">pv</a> <a href="/tags/pvc/" style="font-size: 10px;">pvc</a>
+    </div>
+    
+      <script>
+        var maxTagcloud = parseInt(17);
+        var tags_length = parseInt(22);
+        var tags_arr = [];
+        for(var i = 0; i < tags_length; i++){
+          tags_arr.push(i);
+        }
+        tags_arr.sort(function (l, r) {
+          return Math.random() > 0.5 ? -1 : 1;
+        });
+        tags_arr = tags_arr.slice(0, maxTagcloud < tags_length ? tags_length - maxTagcloud : 0);
+        for(var tag_i = 0; tag_i < tags_arr.length; tag_i++){
+          document.getElementById("randomtagcloud").children[tags_arr[tag_i]].style.display = 'none';
+        }
+      </script>
+    
+  </div>
+
+    
+        
+        
+        
+        
+        
+  <div class="nexmoe-widget-wrap">
+    <h3 class="nexmoe-widget-title">访问量统计</h3>
+    <div class="nexmoe-widget">
+      <!-- <script async src="/js/busuanzi.pure.mini.js"></script> -->
+      <script async src="https://cdn.bootcdn.net/ajax/libs/busuanzi/2.3.0/bsz.pure.mini.js"></script>
+      <ul>
+        <li><span class="busuanzi" id="busuanzi_container_site_pv">本站总访问量:<span id="busuanzi_value_site_pv"></span>次</span></li>
+        <li><span class="busuanzi" id="busuanzi_container_site_uv">本站访客数:<span id="busuanzi_value_site_uv"></span>人</span></li>
+      </ul>
+      
+    </div>
+  </div>
+
+    
+        
+   
+    <div class="nexmoe-copyright">
+        &copy; 2023 Jim Oblivion
+        Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>
+        & <a href="https://github.com/theme-nexmoe/hexo-theme-nexmoe" target="_blank">Nexmoe</a>
+        <br><a target="_blank" href="https://beian.miit.gov.cn/">鄂ICP备2020018486号</a>
+
+    </div>
+</div><!-- .nexmoe-drawer --></div><div id="nexmoe-content"><script src="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/animate/firework.js" defer></script><canvas class="fireworks" style="position: fixed;left: 0;top: 0;z-index: 10000; pointer-events: none;"></canvas><div class="nexmoe-primary"><div class="nexmoe-post">
+  <article>
+    
+        <div class="nexmoe-post-cover absolute" style="padding-top: NaN%;"> 
+            <img src="/2023/07/12/Docker和Kubernetes安装/v2-7f33f488e57e150d7788f3ef9e316035_720w.jpg" alt="Kubernetes实战笔记（四）：资源调度Deployment" loading="lazy">
+            <h1>Kubernetes实战笔记（四）：资源调度Deployment</h1>
+        </div>
+    
+    
+    <div class="nexmoe-post-meta">
+    <div class="nexmoe-rainbow">
+        <a class="nexmoefont icon-calendar-fill">2023年07月18日</a>
+        
+            <a class="nexmoefont icon-appstore-fill -link" href="/categories/Kubernetes%E5%AE%9E%E6%88%98/">Kubernetes实战</a>
+        
+        
+    </div>
+    
+    
+    
+    
+    
+</div>
+
+    <h2 id="说明"><a href="#说明" class="headerlink" title="说明"></a>说明</h2><p>Deployment是用来管理pod和Replicas pod部署、副本设定、滚动升级、回滚等功能。</p>
+<h2 id="创建"><a href="#创建" class="headerlink" title="创建"></a>创建</h2><h3 id="编辑yml"><a href="#编辑yml" class="headerlink" title="编辑yml"></a>编辑yml</h3><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="string">vim</span> <span class="string">nginx-deploy.yaml</span></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">apps/v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Deployment</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">annotations:</span></span><br><span class="line">    <span class="attr">deployment.kubernetes.io/revision:</span> <span class="string">&quot;1&quot;</span></span><br><span class="line">  <span class="attr">creationTimestamp:</span> <span class="string">&quot;2023-06-30T05:22:41Z&quot;</span></span><br><span class="line">  <span class="attr">generation:</span> <span class="number">1</span></span><br><span class="line">  <span class="attr">labels:</span></span><br><span class="line">    <span class="attr">app:</span> <span class="string">nginx-deploy</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">nginx-deploy</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">zy-test</span></span><br><span class="line">  <span class="attr">resourceVersion:</span> <span class="string">&quot;18422&quot;</span></span><br><span class="line">  <span class="attr">uid:</span> <span class="string">dac95cad-f455-4ca4-a8cd-569d8bbfdfdc</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">progressDeadlineSeconds:</span> <span class="number">600</span></span><br><span class="line">  <span class="attr">replicas:</span> <span class="number">1</span></span><br><span class="line">  <span class="attr">revisionHistoryLimit:</span> <span class="number">10</span> <span class="comment"># 指定deployment保留多少revision,如果设置为0，则不允许deployment回退</span></span><br><span class="line">  <span class="attr">selector:</span></span><br><span class="line">    <span class="attr">matchLabels:</span></span><br><span class="line">      <span class="attr">app:</span> <span class="string">nginx-deploy</span></span><br><span class="line">  <span class="attr">strategy:</span></span><br><span class="line">    <span class="attr">rollingUpdate:</span></span><br><span class="line">      <span class="attr">maxSurge:</span> <span class="number">25</span><span class="string">%</span></span><br><span class="line">      <span class="attr">maxUnavailable:</span> <span class="number">25</span><span class="string">%</span></span><br><span class="line">    <span class="attr">type:</span> <span class="string">RollingUpdate</span></span><br><span class="line">  <span class="attr">template:</span></span><br><span class="line">    <span class="attr">metadata:</span></span><br><span class="line">      <span class="attr">creationTimestamp:</span> <span class="literal">null</span></span><br><span class="line">      <span class="attr">labels:</span></span><br><span class="line">        <span class="attr">app:</span> <span class="string">nginx-deploy</span></span><br><span class="line">    <span class="attr">spec:</span></span><br><span class="line">      <span class="attr">containers:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">image:</span> <span class="string">nginx:1.7.9</span></span><br><span class="line">        <span class="attr">imagePullPolicy:</span> <span class="string">IfNotPresent</span></span><br><span class="line">        <span class="attr">name:</span> <span class="string">nginx</span></span><br><span class="line">        <span class="attr">resources:</span> &#123;&#125;</span><br><span class="line">        <span class="attr">terminationMessagePath:</span> <span class="string">/dev/termination-log</span></span><br><span class="line">        <span class="attr">terminationMessagePolicy:</span> <span class="string">File</span></span><br><span class="line">      <span class="attr">dnsPolicy:</span> <span class="string">ClusterFirst</span></span><br><span class="line">      <span class="attr">restartPolicy:</span> <span class="string">Always</span></span><br><span class="line">      <span class="attr">schedulerName:</span> <span class="string">default-scheduler</span></span><br><span class="line">      <span class="attr">securityContext:</span> &#123;&#125;</span><br><span class="line">      <span class="attr">terminationGracePeriodSeconds:</span> <span class="number">30</span></span><br><span class="line"><span class="attr">status:</span></span><br><span class="line">  <span class="attr">availableReplicas:</span> <span class="number">1</span></span><br><span class="line">  <span class="attr">conditions:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">lastTransitionTime:</span> <span class="string">&quot;2023-06-30T05:22:43Z&quot;</span></span><br><span class="line">    <span class="attr">lastUpdateTime:</span> <span class="string">&quot;2023-06-30T05:22:43Z&quot;</span></span><br><span class="line">    <span class="attr">message:</span> <span class="string">Deployment</span> <span class="string">has</span> <span class="string">minimum</span> <span class="string">availability.</span></span><br><span class="line">    <span class="attr">reason:</span> <span class="string">MinimumReplicasAvailable</span></span><br><span class="line">    <span class="attr">status:</span> <span class="string">&quot;True&quot;</span></span><br><span class="line">    <span class="attr">type:</span> <span class="string">Available</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">lastTransitionTime:</span> <span class="string">&quot;2023-06-30T05:22:41Z&quot;</span></span><br><span class="line">    <span class="attr">lastUpdateTime:</span> <span class="string">&quot;2023-06-30T05:22:43Z&quot;</span></span><br><span class="line">    <span class="attr">message:</span> <span class="string">ReplicaSet</span> <span class="string">&quot;nginx-deploy-78d8bf4fd7&quot;</span> <span class="string">has</span> <span class="string">successfully</span> <span class="string">progressed.</span></span><br><span class="line">    <span class="attr">reason:</span> <span class="string">NewReplicaSetAvailable</span></span><br><span class="line">    <span class="attr">status:</span> <span class="string">&quot;True&quot;</span></span><br><span class="line">    <span class="attr">type:</span> <span class="string">Progressing</span></span><br><span class="line">  <span class="attr">observedGeneration:</span> <span class="number">1</span></span><br><span class="line">  <span class="attr">readyReplicas:</span> <span class="number">1</span></span><br><span class="line">  <span class="attr">replicas:</span> <span class="number">1</span></span><br><span class="line">  <span class="attr">updatedReplicas:</span> <span class="number">1</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="创建deploy"><a href="#创建deploy" class="headerlink" title="创建deploy"></a>创建deploy</h3><ul>
+<li><p>执行创建脚本</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test  create deploy nginx-deploy.yaml</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>查看我们的po, rs，deploy并且显示labels</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test  get po,rs,deploy --show-labels</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/1.png" class="" title="在这里插入图片描述"></li>
+</ul>
+<h2 id="滚动更新"><a href="#滚动更新" class="headerlink" title="滚动更新"></a>滚动更新</h2><p><code>只有修改了deployment配置文件中的template中的属性后，才会触发更新操作</code></p>
+<ul>
+<li><p>修改镜像版本号</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test  <span class="built_in">set</span> image deployment/nginx-deploy nginx=nginx:1.9.1</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>监控节点状态</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test  get deploy -w</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/2.png" class="" title="在这里插入图片描述">
+</li>
+<li><p>查看deployment的描述, 版本号已经更新</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test  describe  deployment/nginx-deploy</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/3.png" class="" title="在这里插入图片描述">
+</li>
+<li><p>或者可以直接编辑保存deployment，效果一样</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test edit deploy  nginx-deploy</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>查看滚动更新状态</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test rollout status deploy nginx-deploy</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/4.png" class="" title="在这里插入图片描述">
+</li>
+<li><p>通过Id查看po，rs, deploy之间的关系</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test get deploy --show-labels</span><br><span class="line">kubectl -n zy-test get rs --show-labels</span><br><span class="line">kubectl -n zy-test get po --show-labels</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/5.png" class="" title="在这里插入图片描述"></li>
+</ul>
+<h2 id="版本回滚"><a href="#版本回滚" class="headerlink" title="版本回滚"></a>版本回滚</h2><p><code>当我们deployment不稳定，比如一直crash looping，此时我们可能需要回退之前的版本。</code><br><code>默认系统中会保存前两次的rollout记录，可以修改revision history limit来更改revision的数量。</code></p>
+<ul>
+<li><p>模拟不小心写错镜像版本（修改一个不存在的nginx的版本）</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test  <span class="built_in">set</span> image deployment/nginx-deploy nginx=nginx:1.91</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>查看滚动升级的状态，发现 更新过程被卡住</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test rollout status deploy nginx-deploy</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/6.png" class="" title="在这里插入图片描述">
+</li>
+<li><p>查看我们rs和pod的信息，会发现ErrImagePull的信息  </p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test get rs    </span><br><span class="line">kubectl -n zy-test get pods</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/7.png" class="" title="在这里插入图片描述">
+</li>
+<li><p>查看我们可以回退的revision的列表</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test   rollout <span class="built_in">history</span> deployment/nginx-deploy</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/8.png" class="" title="在这里插入图片描述">
+</li>
+<li><p>查看版本详情</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test   rollout <span class="built_in">history</span> deployment/nginx-deploy --revision=2</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/9.png" class="" title="在这里插入图片描述">
+</li>
+<li><p>确认需要回退后，进行版本回退</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test rollout undo deployment/nginx-deploy</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/10.png" class="" title="在这里插入图片描述">
+</li>
+<li><p>也可以指定版本进行回退</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test rollout undo deploy nginx-deploy --to-revision=2</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/11.png" class="" title="在这里插入图片描述">
+</li>
+<li><p>查看回退版本后deployment信息</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test describe deploy nginx-deploy</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/12.png" class="" title="在这里插入图片描述">
+
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test rollout undo deploy nginx-deploy --to-revision=1</span><br><span class="line">kubectl -n zy-test describe deploy nginx-deploy</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/13.png" class="" title="在这里插入图片描述">
+  <img src="/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/14.png" class="" title="在这里插入图片描述"></li>
+</ul>
+<h2 id="扩容和缩容"><a href="#扩容和缩容" class="headerlink" title="扩容和缩容"></a>扩容和缩容</h2><p><code>通过kube scale命令可以进行扩容和缩容，也可以使用kube edit编辑replicas实现扩容和缩容。</code><br><code>扩容和缩容只是创建副本数量，没有更新pod template所以不会创建新的rs。</code></p>
+<h3 id="扩容"><a href="#扩容" class="headerlink" title="扩容"></a>扩容</h3><ul>
+<li><p>执行扩容操作</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test scale --replicas=2 deploy nginx-deploy</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>查看扩容后状态</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test get po</span><br><span class="line">kubectl -n zy-test get deploy</span><br><span class="line">kubectl -n zy-test get rs</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/15.png" class="" title="在这里插入图片描述"></li>
+</ul>
+<h3 id="缩容"><a href="#缩容" class="headerlink" title="缩容"></a>缩容</h3><ul>
+<li><p>执行缩容操作</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test scale --replicas=1 deploy nginx-deploy</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>查看缩容后状态</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test get po</span><br><span class="line">kubectl -n zy-test get deploy</span><br><span class="line">kubectl -n zy-test get rs</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/16.png" class="" title="在这里插入图片描述"></li>
+</ul>
+<h2 id="更新的暂停和恢复"><a href="#更新的暂停和恢复" class="headerlink" title="更新的暂停和恢复"></a>更新的暂停和恢复</h2><p><code>由于我们每次对pod template中的信息发生修改后，都会触发更新deployment操作。</code><br><code>那么此时如果频发修改信息，就会产生多次更新，但是我们实际上只需要最后一次更新。这种情况下我们可以暂停deployment的rollout。</code></p>
+<h3 id="暂停更新"><a href="#暂停更新" class="headerlink" title="暂停更新"></a>暂停更新</h3><ul>
+<li><p>执行暂停脚本</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test rollout pause deployment nginx-deploy</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/17.png" class="" title="在这里插入图片描述">
+</li>
+<li><p>监听我们pod的状态</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test get po -w</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>更新pod的中镜像的版本</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test <span class="built_in">set</span> image deploy nginx-deploy nginx=nginx:1.19.1</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/18.png" class="" title="在这里插入图片描述">
+</li>
+<li><p>可以看到pod没有发生变化</p>
+  <img src="/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/19.png" class="" title="在这里插入图片描述">
+</li>
+<li><p>我们再次修改一些属性</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test <span class="built_in">set</span> resources deploy nginx-deploy -c nginx --limits=cpu=200m,memory=128Mi --requests=cpu=100m,memory=64Mi</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/20.png" class="" title="在这里插入图片描述">
+</li>
+<li><p>格式化输出deployment确认修改项，确认修改成功</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test get deploy nginx-deploy -o yaml</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/21.png" class="" title="在这里插入图片描述"></li>
+</ul>
+<h3 id="从暂停中恢复"><a href="#从暂停中恢复" class="headerlink" title="从暂停中恢复"></a>从暂停中恢复</h3><ul>
+<li><p>执行状态恢复脚本</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test rollout resume  deploy nginx-deploy</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/22.png" class="" title="在这里插入图片描述">
+</li>
+<li><p>此时pod的状态发生了变更</p>
+  <img src="/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/23.png" class="" title="在这里插入图片描述">
+</li>
+<li><p>查看更新历史和详情</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test rollout <span class="built_in">history</span> deploy nginx-deploy</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/24.png" class="" title="在这里插入图片描述">
+
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test rollout <span class="built_in">history</span> deploy nginx-deploy  --revision=8</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/25.png" class="" title="在这里插入图片描述"></li>
+</ul>
+
+    <p class="articleSlot"><span class="splitLine"></span><img class="give" src="/img/icons8-coin-96.png" loading="lazy"><img class="buyMeCoffee" src="/img/buymecoffe.jpg" loading="lazy"></p>
+
+  </article>
+
+  
+      
+    <div class="nexmoe-post-copyright">
+        <strong>本文作者：</strong>Jim Oblivion<br>
+        <strong>本文链接：</strong><a href="http://jimoblivion.github.io/2023/07/18/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment/" title="http:&#x2F;&#x2F;jimoblivion.github.io&#x2F;2023&#x2F;07&#x2F;18&#x2F;Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment&#x2F;" target="_blank" rel="noopener">http:&#x2F;&#x2F;jimoblivion.github.io&#x2F;2023&#x2F;07&#x2F;18&#x2F;Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%9B%9B%EF%BC%89%EF%BC%9A%E8%B5%84%E6%BA%90%E8%B0%83%E5%BA%A6Deployment&#x2F;</a><br>
+        
+            <strong>版权声明：</strong>本文采用 <a href="https://creativecommons.org/licenses/by-nc-sa/3.0/cn/deed.zh" target="_blank">CC BY-NC-SA 3.0 CN</a> 协议进行许可
+
+        
+    </div>
+
+
+  
+  
+  <div class="nexmoe-post-meta nexmoe-rainbow">
+   
+    
+        <a class="nexmoefont icon-tag-fill -none-link" href="/tags/deployment/" rel="tag">deployment</a> <a class="nexmoefont icon-tag-fill -none-link" href="/tags/k8s/" rel="tag">k8s</a>
+    
+</div>
+  
+  
+    <script async src="/js/copy-codeblock.js?v=1690205319718"></script>
+  
+
+  
+      <div class="nexmoe-post-footer">
+          放弃了就不该后悔，失去了就不该回忆。
+
+      </div>
+  
+</div></div><div class="nexmoe-post-right">    <div class="nexmoe-fixed">
+        <div class="nexmoe-tool">
+
+            
+
+            
+            
+            <button class="mdui-fab catalog" style="overflow:unset;">
+                <i class="nexmoefont icon-i-catalog"></i>
+                <div class="nexmoe-toc">
+                    <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%AF%B4%E6%98%8E"><span class="toc-number">1.</span> <span class="toc-text">说明</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%9B%E5%BB%BA"><span class="toc-number">2.</span> <span class="toc-text">创建</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%BC%96%E8%BE%91yml"><span class="toc-number">2.1.</span> <span class="toc-text">编辑yml</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%88%9B%E5%BB%BAdeploy"><span class="toc-number">2.2.</span> <span class="toc-text">创建deploy</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%BB%9A%E5%8A%A8%E6%9B%B4%E6%96%B0"><span class="toc-number">3.</span> <span class="toc-text">滚动更新</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%89%88%E6%9C%AC%E5%9B%9E%E6%BB%9A"><span class="toc-number">4.</span> <span class="toc-text">版本回滚</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%89%A9%E5%AE%B9%E5%92%8C%E7%BC%A9%E5%AE%B9"><span class="toc-number">5.</span> <span class="toc-text">扩容和缩容</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%89%A9%E5%AE%B9"><span class="toc-number">5.1.</span> <span class="toc-text">扩容</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%BC%A9%E5%AE%B9"><span class="toc-number">5.2.</span> <span class="toc-text">缩容</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9B%B4%E6%96%B0%E7%9A%84%E6%9A%82%E5%81%9C%E5%92%8C%E6%81%A2%E5%A4%8D"><span class="toc-number">6.</span> <span class="toc-text">更新的暂停和恢复</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%9A%82%E5%81%9C%E6%9B%B4%E6%96%B0"><span class="toc-number">6.1.</span> <span class="toc-text">暂停更新</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BB%8E%E6%9A%82%E5%81%9C%E4%B8%AD%E6%81%A2%E5%A4%8D"><span class="toc-number">6.2.</span> <span class="toc-text">从暂停中恢复</span></a></li></ol></li></ol>
+                </div>
+            </button>
+            
+
+            
+
+            <a href="#nexmoe-content" class="backtop toc-link" aria-label="Back To Top" title="top"><button class="mdui-fab mdui-ripple"><i class="nexmoefont icon-caret-top"></i></button></a>
+        </div>
+    </div>
+</div></div><div id="nexmoe-footer"><script src="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/animate/fish.js" defer></script><div id="footer-wrap"></div><!--!--></div><div><div id="nexmoe-search-space">
+	<div class="search-container">
+		<div class="search-header">
+			<div class="search-input-container">
+				<input
+					class="search-input"
+					type="text"
+					placeholder="搜索"
+					oninput="sinput();"
+				/>
+			</div>
+			<a class="search-close" onclick="sclose();">×</a>
+		</div>
+		<div class="search-body"></div>
+	</div>
+</div>
+</div><div><script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2058306854838448" crossorigin="anonymous"></script>
+</div></body></html>

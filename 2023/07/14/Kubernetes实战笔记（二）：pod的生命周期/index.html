@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="zh"><head>
+<title>Kubernetes实战笔记（二）：pod的生命周期 - Oblivion</title>
+<meta charset="UTF-8">
+<meta name="keywords" content="">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+<meta name="referrer" content="no-referrer-when-downgrade">
+
+<link rel="shortcut icon" href="/img/favicon.ico" type="image/x-icon" />
+<meta name="description" content="Pod退出 Endpoint删除pod的ip地址 Pod变成Terminating状态 执行preStop的指令  PreStop应用 注册中心下线 数据清理 数据销毁  配置项描述terminationGracePeriodSeconds: Pod执行删除操作的时候还能维持一段时间，让pod去执行一些清理或者销毁的操作： 1234# 作用于pod中的所有容器terminationGracePer">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Kubernetes实战笔记（二）：pod的生命周期">
+<meta property="og:url" content="http://jimoblivion.github.io/2023/07/14/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%8C%EF%BC%89%EF%BC%9Apod%E7%9A%84%E7%94%9F%E5%91%BD%E5%91%A8%E6%9C%9F/index.html">
+<meta property="og:site_name" content="Oblivion">
+<meta property="og:description" content="Pod退出 Endpoint删除pod的ip地址 Pod变成Terminating状态 执行preStop的指令  PreStop应用 注册中心下线 数据清理 数据销毁  配置项描述terminationGracePeriodSeconds: Pod执行删除操作的时候还能维持一段时间，让pod去执行一些清理或者销毁的操作： 1234# 作用于pod中的所有容器terminationGracePer">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/14/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%8C%EF%BC%89%EF%BC%9Apod%E7%9A%84%E7%94%9F%E5%91%BD%E5%91%A8%E6%9C%9F/1.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/14/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%8C%EF%BC%89%EF%BC%9Apod%E7%9A%84%E7%94%9F%E5%91%BD%E5%91%A8%E6%9C%9F/2.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/14/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%8C%EF%BC%89%EF%BC%9Apod%E7%9A%84%E7%94%9F%E5%91%BD%E5%91%A8%E6%9C%9F/3.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/14/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%8C%EF%BC%89%EF%BC%9Apod%E7%9A%84%E7%94%9F%E5%91%BD%E5%91%A8%E6%9C%9F/4.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/14/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%8C%EF%BC%89%EF%BC%9Apod%E7%9A%84%E7%94%9F%E5%91%BD%E5%91%A8%E6%9C%9F/5.png">
+<meta property="article:published_time" content="2023-07-14T06:57:57.000Z">
+<meta property="article:modified_time" content="2023-07-18T15:27:27.426Z">
+<meta property="article:author" content="Jim Oblivion">
+<meta property="article:tag" content="k8s">
+<meta property="article:tag" content="pod">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://jimoblivion.github.io/2023/07/14/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%8C%EF%BC%89%EF%BC%9Apod%E7%9A%84%E7%94%9F%E5%91%BD%E5%91%A8%E6%9C%9F/1.png">
+<!-- <link rel="stylesheet" href="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/fancybox/fancybox.css">
+<link rel="stylesheet" href="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/mdui_043tiny/mdui.css">
+<link rel="stylesheet" href="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/animate/htmleaf-demo.css"> -->
+
+<!-- <link href='http://fonts.font.im/css?family=Exo+2:400,500italic' rel='stylesheet' type='text/css'> -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- <link href="https://fonts.googleapis.com/css?family=Noto+Sans+SC:100,300,400,500,700,900" rel="stylesheet"> -->
+<link href="https://fonts.googleapis.com/css2?family=Fredericka+the+Great&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="/lib/fancybox/fancybox.css">
+<link rel="stylesheet" href="/lib/mdui_043tiny/mdui.css">
+<link rel="stylesheet" href="/lib/animate/htmleaf-demo.css">
+
+
+<link rel="stylesheet" href="/lib/iconfont/iconfont.css?v=1690205319863">
+
+<link rel="stylesheet" href="/css/style.css?v=1690205319863">
+
+
+
+
+    
+        <link rel="stylesheet" href="/custom.css?v=1690205319863">
+    
+
+<!-- { src:'lib/animate/jquery.min.js' , async: true},  -->
+<!-- { src:'lib/animate/anime.min.js' , async: true}, -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/2.2.0/anime.min.js"></script>
+<!-- <script src="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/mdui_043tiny/mdui.js"></script>
+<script src="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/fancybox/fancybox.umd.js"></script>
+<script src="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/lax.min.js"></script> -->
+
+<script src="/lib/mdui_043tiny/mdui.js" async></script>
+<script src="/lib/fancybox/fancybox.umd.js" async></script>
+<script src="/lib/lax.min.js" async></script>
+
+
+<script async src="/js/app.js?v=1690205319863"></script>
+
+ 
+
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-4D4ZJ9G024"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag("js", new Date());
+
+  gtag("config", "G-4D4ZJ9G024");
+</script>
+
+<meta name="generator" content="Hexo 6.3.0"></head><body class="nexmoe mdui-drawer-body-left"><div id="nexmoe-background"><div class="nexmoe-bg" style="background-image: url(/img/bg.jpg)"></div><div class="mdui-appbar mdui-shadow-0"><div class="mdui-toolbar"><a class="mdui-btn mdui-btn-icon mdui-ripple" mdui-drawer="{target: &#039;#drawer&#039;, swipe: true}" title="menu"><i class="mdui-icon nexmoefont icon-menu"></i></a><div class="mdui-toolbar-spacer"></div><a class="mdui-btn mdui-btn-icon" href="/" title="Jim Oblivion"><img src="/img/logo.jpg" alt="Jim Oblivion"></a></div></div></div><div id="nexmoe-header"><div class="nexmoe-drawer mdui-drawer" id="drawer">
+    <div class="nexmoe-avatar mdui-ripple">
+        <a href="/" title="Jim Oblivion">
+            <img src="/img/logo.jpg" alt="Jim Oblivion" alt="Jim Oblivion">
+        </a>
+    </div>
+    <div class="nexmoe-count">
+        <div><span>文章</span>24</div>
+        <div><span>标签</span>22</div>
+        <div><span>分类</span>2</div>
+    </div>
+    <div class="nexmoe-list mdui-list" mdui-collapse="{accordion: true}">
+        
+        <a class="nexmoe-list-item mdui-list-item mdui-ripple false" href="/" title="回到首页">
+            <i class="mdui-list-item-icon nexmoefont icon-home"></i>
+            <div class="mdui-list-item-content">
+                回到首页
+            </div>
+        </a>
+        
+        <a class="nexmoe-list-item mdui-list-item mdui-ripple false" href="/archive.html" title="文章归档">
+            <i class="mdui-list-item-icon nexmoefont icon-container"></i>
+            <div class="mdui-list-item-content">
+                文章归档
+            </div>
+        </a>
+        
+        <a class="nexmoe-list-item mdui-list-item mdui-ripple false" href="/2023/07/12/%E8%B5%9E%E5%8A%A9%E6%88%91" title="给我赞助">
+            <i class="mdui-list-item-icon nexmoefont icon-coffee"></i>
+            <div class="mdui-list-item-content">
+                给我赞助
+            </div>
+        </a>
+        
+        <a class="nexmoe-list-item mdui-list-item mdui-ripple false" href="/about" title="关于博主">
+            <i class="mdui-list-item-icon nexmoefont icon-info-circle"></i>
+            <div class="mdui-list-item-content">
+                关于博主
+            </div>
+        </a>
+        
+    </div>
+    
+    
+        
+        
+        
+        
+  <div class="nexmoe-widget-wrap">
+    <h3 class="nexmoe-widget-title">文章分类</h3>
+    <div class="nexmoe-widget">
+
+      <ul class="category-list">
+
+        
+
+
+        
+
+        
+
+        <li class="category-list-item">
+          <a class="category-list-link" href="/categories/Kubernetes安装/">Kubernetes安装</a>
+          <span class="category-list-count">2</span>
+        </li>
+
+        
+
+        <li class="category-list-item">
+          <a class="category-list-link" href="/categories/Kubernetes实战/">Kubernetes实战</a>
+          <span class="category-list-count">21</span>
+        </li>
+
+        
+      </ul>
+
+    </div>
+  </div>
+
+
+    
+        
+        
+  <div class="nexmoe-widget-wrap">
+    <div id="randomtagcloud" class="nexmoe-widget tagcloud nexmoe-rainbow">
+      <a href="/tags/ConfigMap/" style="font-size: 10px;">ConfigMap</a> <a href="/tags/CronJob/" style="font-size: 10px;">CronJob</a> <a href="/tags/DaemonSet/" style="font-size: 10px;">DaemonSet</a> <a href="/tags/EmptyDir/" style="font-size: 10px;">EmptyDir</a> <a href="/tags/HPA/" style="font-size: 10px;">HPA</a> <a href="/tags/HostPath/" style="font-size: 10px;">HostPath</a> <a href="/tags/Ingress/" style="font-size: 10px;">Ingress</a> <a href="/tags/Prometheus/" style="font-size: 10px;">Prometheus</a> <a href="/tags/RBAC/" style="font-size: 10px;">RBAC</a> <a href="/tags/Service/" style="font-size: 10px;">Service</a> <a href="/tags/StatefulSet/" style="font-size: 15px;">StatefulSet</a> <a href="/tags/StorageClass/" style="font-size: 10px;">StorageClass</a> <a href="/tags/deployment/" style="font-size: 10px;">deployment</a> <a href="/tags/docker/" style="font-size: 10px;">docker</a> <a href="/tags/helm/" style="font-size: 10px;">helm</a> <a href="/tags/initC/" style="font-size: 10px;">initC</a> <a href="/tags/k8s/" style="font-size: 20px;">k8s</a> <a href="/tags/label/" style="font-size: 10px;">label</a> <a href="/tags/nfs/" style="font-size: 10px;">nfs</a> <a href="/tags/pod/" style="font-size: 15px;">pod</a> <a href="/tags/pv/" style="font-size: 10px;">pv</a> <a href="/tags/pvc/" style="font-size: 10px;">pvc</a>
+    </div>
+    
+      <script>
+        var maxTagcloud = parseInt(17);
+        var tags_length = parseInt(22);
+        var tags_arr = [];
+        for(var i = 0; i < tags_length; i++){
+          tags_arr.push(i);
+        }
+        tags_arr.sort(function (l, r) {
+          return Math.random() > 0.5 ? -1 : 1;
+        });
+        tags_arr = tags_arr.slice(0, maxTagcloud < tags_length ? tags_length - maxTagcloud : 0);
+        for(var tag_i = 0; tag_i < tags_arr.length; tag_i++){
+          document.getElementById("randomtagcloud").children[tags_arr[tag_i]].style.display = 'none';
+        }
+      </script>
+    
+  </div>
+
+    
+        
+        
+        
+        
+        
+  <div class="nexmoe-widget-wrap">
+    <h3 class="nexmoe-widget-title">访问量统计</h3>
+    <div class="nexmoe-widget">
+      <!-- <script async src="/js/busuanzi.pure.mini.js"></script> -->
+      <script async src="https://cdn.bootcdn.net/ajax/libs/busuanzi/2.3.0/bsz.pure.mini.js"></script>
+      <ul>
+        <li><span class="busuanzi" id="busuanzi_container_site_pv">本站总访问量:<span id="busuanzi_value_site_pv"></span>次</span></li>
+        <li><span class="busuanzi" id="busuanzi_container_site_uv">本站访客数:<span id="busuanzi_value_site_uv"></span>人</span></li>
+      </ul>
+      
+    </div>
+  </div>
+
+    
+        
+   
+    <div class="nexmoe-copyright">
+        &copy; 2023 Jim Oblivion
+        Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>
+        & <a href="https://github.com/theme-nexmoe/hexo-theme-nexmoe" target="_blank">Nexmoe</a>
+        <br><a target="_blank" href="https://beian.miit.gov.cn/">鄂ICP备2020018486号</a>
+
+    </div>
+</div><!-- .nexmoe-drawer --></div><div id="nexmoe-content"><script src="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/animate/firework.js" defer></script><canvas class="fireworks" style="position: fixed;left: 0;top: 0;z-index: 10000; pointer-events: none;"></canvas><div class="nexmoe-primary"><div class="nexmoe-post">
+  <article>
+    
+        <div class="nexmoe-post-cover absolute" style="padding-top: NaN%;"> 
+            <img src="/2023/07/12/Docker和Kubernetes安装/v2-7f33f488e57e150d7788f3ef9e316035_720w.jpg" alt="Kubernetes实战笔记（二）：pod的生命周期" loading="lazy">
+            <h1>Kubernetes实战笔记（二）：pod的生命周期</h1>
+        </div>
+    
+    
+    <div class="nexmoe-post-meta">
+    <div class="nexmoe-rainbow">
+        <a class="nexmoefont icon-calendar-fill">2023年07月14日</a>
+        
+            <a class="nexmoefont icon-appstore-fill -link" href="/categories/Kubernetes%E5%AE%9E%E6%88%98/">Kubernetes实战</a>
+        
+        
+    </div>
+    
+    
+    
+    
+    
+</div>
+
+    <h2 id="Pod退出"><a href="#Pod退出" class="headerlink" title="Pod退出"></a>Pod退出</h2><ul>
+<li>Endpoint删除pod的ip地址</li>
+<li>Pod变成Terminating状态</li>
+<li>执行preStop的指令</li>
+</ul>
+<h2 id="PreStop应用"><a href="#PreStop应用" class="headerlink" title="PreStop应用"></a>PreStop应用</h2><ul>
+<li>注册中心下线</li>
+<li>数据清理</li>
+<li>数据销毁</li>
+</ul>
+<h2 id="配置项描述"><a href="#配置项描述" class="headerlink" title="配置项描述"></a>配置项描述</h2><p><code>terminationGracePeriodSeconds</code>: Pod执行删除操作的时候还能维持一段时间，让pod去执行一些清理或者销毁的操作：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 作用于pod中的所有容器</span></span><br><span class="line">terminationGracePeriodSeconds: 30</span><br><span class="line">containers:</span><br><span class="line">  - xxx</span><br></pre></td></tr></table></figure>
+
+<p><code>postStart</code>: command和postStart可能同时执行，也就是容器创建完成后执行的动作，不能保证该操作一定在容器的command之前执行。所以我们一般不postStart, 而是使用初始化容器initC。</p>
+<p><code>preStop</code>: 在容器停止前执行的动作。</p>
+<h2 id="实践"><a href="#实践" class="headerlink" title="实践"></a>实践</h2><ol>
+<li><p>创建pod</p>
+ <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">vim nginx-pod.yml</span><br></pre></td></tr></table></figure>
+
+ <figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line"><span class="attr">name:</span> <span class="string">nginx-pod</span></span><br><span class="line"><span class="attr">labels:</span></span><br><span class="line">    <span class="attr">type:</span> <span class="string">app</span></span><br><span class="line">    <span class="attr">test:</span> <span class="number">1.0</span><span class="number">.0</span></span><br><span class="line"><span class="attr">namespace:</span> <span class="string">&#x27;zy-test&#x27;</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line"><span class="attr">containers:</span></span><br><span class="line"><span class="bullet">-</span> <span class="attr">name:</span> <span class="string">nginx</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">nginx:1.7.9</span></span><br><span class="line">    <span class="attr">imagePullPolicy:</span> <span class="string">IfNotPresent</span></span><br><span class="line">    <span class="comment"># 新增 begin</span></span><br><span class="line">    <span class="attr">lifecycle:</span></span><br><span class="line">    <span class="attr">postStart:</span> <span class="comment"># 生命周期之前 不能保证在容器的 command 之前，一般不用</span></span><br><span class="line">        <span class="attr">exec:</span></span><br><span class="line">        <span class="attr">command:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="string">sh</span></span><br><span class="line">        <span class="bullet">-</span> <span class="string">-c</span></span><br><span class="line">        <span class="bullet">-</span> <span class="string">&quot;echo &#x27;pre stop&#x27; &gt; /usr/share/nginx/html/prestop.html&quot;</span> <span class="comment"># &lt;&gt;需要转义</span></span><br><span class="line">    <span class="attr">preStop:</span> <span class="comment"># 生命周期结束时执行</span></span><br><span class="line">        <span class="attr">exec:</span></span><br><span class="line">        <span class="attr">command:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="string">sh</span></span><br><span class="line">        <span class="bullet">-</span> <span class="string">-c</span></span><br><span class="line">        <span class="bullet">-</span> <span class="string">&quot;sleep 50; echo &#x27;sleep finished...&#x27; &gt;&gt; /usr/share/nginx/html/prestop.html&quot;</span></span><br><span class="line">        <span class="comment"># 新增 end</span></span><br><span class="line">    <span class="attr">command:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">nginx</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">-g</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">&#x27;daemon off;&#x27;</span></span><br><span class="line">    <span class="attr">workingDir:</span> <span class="string">/usr/share/nginx/html</span></span><br><span class="line">    <span class="attr">ports:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">http</span></span><br><span class="line">    <span class="attr">containerPort:</span> <span class="number">80</span></span><br><span class="line">    <span class="attr">protocol:</span> <span class="string">TCP</span></span><br><span class="line">    <span class="attr">env:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">JVM_OPTS</span></span><br><span class="line">    <span class="attr">value:</span> <span class="string">&#x27;-Xms128m -Xmx128m&#x27;</span></span><br><span class="line">    <span class="attr">resources:</span></span><br><span class="line">    <span class="attr">requests:</span></span><br><span class="line">        <span class="attr">cpu:</span> <span class="string">100m</span></span><br><span class="line">        <span class="attr">memory:</span> <span class="string">128Mi</span></span><br><span class="line">    <span class="attr">limits:</span></span><br><span class="line">        <span class="attr">cpu:</span> <span class="string">200m</span></span><br><span class="line">        <span class="attr">memory:</span> <span class="string">256Mi</span></span><br><span class="line"><span class="attr">restartPolicy:</span> <span class="string">OnFailure</span></span><br></pre></td></tr></table></figure>
+
+ <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl create -f nginx-pod.yml</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>查看pod，并且测试 <code>postStart</code> 是否生效</p>
+ <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test get pod -o wide</span><br><span class="line">curl  10.244.249.10/prestop.html</span><br></pre></td></tr></table></figure>
+
+ <img src="/2023/07/14/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%8C%EF%BC%89%EF%BC%9Apod%E7%9A%84%E7%94%9F%E5%91%BD%E5%91%A8%E6%9C%9F/1.png" class="" title="在这里插入图片描述">
+</li>
+<li><p>删除pod，测试 <code>preStop</code> 是否生效</p>
+ <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 查看pod的ip</span></span><br><span class="line">kubectl -n zy-test delete pod nginx-pod</span><br><span class="line">curl 10.244.249.10/prestop.html</span><br></pre></td></tr></table></figure>
+
+ <img src="/2023/07/14/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%8C%EF%BC%89%EF%BC%9Apod%E7%9A%84%E7%94%9F%E5%91%BD%E5%91%A8%E6%9C%9F/2.png" class="" title="在这里插入图片描述">
+ <img src="/2023/07/14/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%8C%EF%BC%89%EF%BC%9Apod%E7%9A%84%E7%94%9F%E5%91%BD%E5%91%A8%E6%9C%9F/3.png" class="" title="在这里插入图片描述">
+</li>
+<li><p>新增 <code>terminationGracePeriodSeconds</code> 设置销毁后宽限时间</p>
+ <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">spec:</span><br><span class="line">terminationGracePeriodSeconds: 15 <span class="comment"># 容器销毁前给的宽限时间</span></span><br></pre></td></tr></table></figure>
+
+ <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 监听删除命令执行的时间</span></span><br><span class="line">time kubectl -n zy-test delete pod nginx-pod</span><br></pre></td></tr></table></figure>
+
+ <img src="/2023/07/14/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%8C%EF%BC%89%EF%BC%9Apod%E7%9A%84%E7%94%9F%E5%91%BD%E5%91%A8%E6%9C%9F/4.png" class="" title="在这里插入图片描述">
+</li>
+<li><p>我们可以在删除pod的同时持续监听pod的状态</p>
+ <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test get pod -w</span><br></pre></td></tr></table></figure>
+
+ <img src="/2023/07/14/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%8C%EF%BC%89%EF%BC%9Apod%E7%9A%84%E7%94%9F%E5%91%BD%E5%91%A8%E6%9C%9F/5.png" class="" title="在这里插入图片描述"></li>
+</ol>
+<blockquote>
+<p>如需转载请说明出处</p>
+</blockquote>
+
+    <p class="articleSlot"><span class="splitLine"></span><img class="give" src="/img/icons8-coin-96.png" loading="lazy"><img class="buyMeCoffee" src="/img/buymecoffe.jpg" loading="lazy"></p>
+
+  </article>
+
+  
+      
+    <div class="nexmoe-post-copyright">
+        <strong>本文作者：</strong>Jim Oblivion<br>
+        <strong>本文链接：</strong><a href="http://jimoblivion.github.io/2023/07/14/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%8C%EF%BC%89%EF%BC%9Apod%E7%9A%84%E7%94%9F%E5%91%BD%E5%91%A8%E6%9C%9F/" title="http:&#x2F;&#x2F;jimoblivion.github.io&#x2F;2023&#x2F;07&#x2F;14&#x2F;Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%8C%EF%BC%89%EF%BC%9Apod%E7%9A%84%E7%94%9F%E5%91%BD%E5%91%A8%E6%9C%9F&#x2F;" target="_blank" rel="noopener">http:&#x2F;&#x2F;jimoblivion.github.io&#x2F;2023&#x2F;07&#x2F;14&#x2F;Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%8C%EF%BC%89%EF%BC%9Apod%E7%9A%84%E7%94%9F%E5%91%BD%E5%91%A8%E6%9C%9F&#x2F;</a><br>
+        
+            <strong>版权声明：</strong>本文采用 <a href="https://creativecommons.org/licenses/by-nc-sa/3.0/cn/deed.zh" target="_blank">CC BY-NC-SA 3.0 CN</a> 协议进行许可
+
+        
+    </div>
+
+
+  
+  
+  <div class="nexmoe-post-meta nexmoe-rainbow">
+   
+    
+        <a class="nexmoefont icon-tag-fill -none-link" href="/tags/k8s/" rel="tag">k8s</a> <a class="nexmoefont icon-tag-fill -none-link" href="/tags/pod/" rel="tag">pod</a>
+    
+</div>
+  
+  
+    <script async src="/js/copy-codeblock.js?v=1690205319719"></script>
+  
+
+  
+      <div class="nexmoe-post-footer">
+          放弃了就不该后悔，失去了就不该回忆。
+
+      </div>
+  
+</div></div><div class="nexmoe-post-right">    <div class="nexmoe-fixed">
+        <div class="nexmoe-tool">
+
+            
+
+            
+            
+            <button class="mdui-fab catalog" style="overflow:unset;">
+                <i class="nexmoefont icon-i-catalog"></i>
+                <div class="nexmoe-toc">
+                    <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#Pod%E9%80%80%E5%87%BA"><span class="toc-number">1.</span> <span class="toc-text">Pod退出</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#PreStop%E5%BA%94%E7%94%A8"><span class="toc-number">2.</span> <span class="toc-text">PreStop应用</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%85%8D%E7%BD%AE%E9%A1%B9%E6%8F%8F%E8%BF%B0"><span class="toc-number">3.</span> <span class="toc-text">配置项描述</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%9E%E8%B7%B5"><span class="toc-number">4.</span> <span class="toc-text">实践</span></a></li></ol>
+                </div>
+            </button>
+            
+
+            
+
+            <a href="#nexmoe-content" class="backtop toc-link" aria-label="Back To Top" title="top"><button class="mdui-fab mdui-ripple"><i class="nexmoefont icon-caret-top"></i></button></a>
+        </div>
+    </div>
+</div></div><div id="nexmoe-footer"><script src="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/animate/fish.js" defer></script><div id="footer-wrap"></div><!--!--></div><div><div id="nexmoe-search-space">
+	<div class="search-container">
+		<div class="search-header">
+			<div class="search-input-container">
+				<input
+					class="search-input"
+					type="text"
+					placeholder="搜索"
+					oninput="sinput();"
+				/>
+			</div>
+			<a class="search-close" onclick="sclose();">×</a>
+		</div>
+		<div class="search-body"></div>
+	</div>
+</div>
+</div><div><script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2058306854838448" crossorigin="anonymous"></script>
+</div></body></html>

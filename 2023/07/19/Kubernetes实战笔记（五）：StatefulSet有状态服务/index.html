@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="zh"><head>
+<title>Kubernetes实战笔记（五）：StatefulSet有状态服务 - Oblivion</title>
+<meta charset="UTF-8">
+<meta name="keywords" content="">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+<meta name="referrer" content="no-referrer-when-downgrade">
+
+<link rel="shortcut icon" href="/img/favicon.ico" type="image/x-icon" />
+<meta name="description" content="说明 StatefulSet是专门针对有状态服务进行部署的一个控制器。 创建 创建yaml   1vim nginx-ss.yml    123456789101112131415161718192021222324252627282930313233343536373839404142434445464748495051---apiVersion: v1kind: Servicemetadata">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Kubernetes实战笔记（五）：StatefulSet有状态服务">
+<meta property="og:url" content="http://jimoblivion.github.io/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%94%EF%BC%89%EF%BC%9AStatefulSet%E6%9C%89%E7%8A%B6%E6%80%81%E6%9C%8D%E5%8A%A1/index.html">
+<meta property="og:site_name" content="Oblivion">
+<meta property="og:description" content="说明 StatefulSet是专门针对有状态服务进行部署的一个控制器。 创建 创建yaml   1vim nginx-ss.yml    123456789101112131415161718192021222324252627282930313233343536373839404142434445464748495051---apiVersion: v1kind: Servicemetadata">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%94%EF%BC%89%EF%BC%9AStatefulSet%E6%9C%89%E7%8A%B6%E6%80%81%E6%9C%8D%E5%8A%A1/1.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%94%EF%BC%89%EF%BC%9AStatefulSet%E6%9C%89%E7%8A%B6%E6%80%81%E6%9C%8D%E5%8A%A1/2.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%94%EF%BC%89%EF%BC%9AStatefulSet%E6%9C%89%E7%8A%B6%E6%80%81%E6%9C%8D%E5%8A%A1/3.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%94%EF%BC%89%EF%BC%9AStatefulSet%E6%9C%89%E7%8A%B6%E6%80%81%E6%9C%8D%E5%8A%A1/4.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%94%EF%BC%89%EF%BC%9AStatefulSet%E6%9C%89%E7%8A%B6%E6%80%81%E6%9C%8D%E5%8A%A1/5.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%94%EF%BC%89%EF%BC%9AStatefulSet%E6%9C%89%E7%8A%B6%E6%80%81%E6%9C%8D%E5%8A%A1/6.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%94%EF%BC%89%EF%BC%9AStatefulSet%E6%9C%89%E7%8A%B6%E6%80%81%E6%9C%8D%E5%8A%A1/7.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%94%EF%BC%89%EF%BC%9AStatefulSet%E6%9C%89%E7%8A%B6%E6%80%81%E6%9C%8D%E5%8A%A1/8.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%94%EF%BC%89%EF%BC%9AStatefulSet%E6%9C%89%E7%8A%B6%E6%80%81%E6%9C%8D%E5%8A%A1/9.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%94%EF%BC%89%EF%BC%9AStatefulSet%E6%9C%89%E7%8A%B6%E6%80%81%E6%9C%8D%E5%8A%A1/10.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%94%EF%BC%89%EF%BC%9AStatefulSet%E6%9C%89%E7%8A%B6%E6%80%81%E6%9C%8D%E5%8A%A1/11.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%94%EF%BC%89%EF%BC%9AStatefulSet%E6%9C%89%E7%8A%B6%E6%80%81%E6%9C%8D%E5%8A%A1/12.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%94%EF%BC%89%EF%BC%9AStatefulSet%E6%9C%89%E7%8A%B6%E6%80%81%E6%9C%8D%E5%8A%A1/13.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%94%EF%BC%89%EF%BC%9AStatefulSet%E6%9C%89%E7%8A%B6%E6%80%81%E6%9C%8D%E5%8A%A1/14.png">
+<meta property="article:published_time" content="2023-07-19T06:10:04.000Z">
+<meta property="article:modified_time" content="2023-07-19T10:57:28.799Z">
+<meta property="article:author" content="Jim Oblivion">
+<meta property="article:tag" content="k8s">
+<meta property="article:tag" content="StatefulSet">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://jimoblivion.github.io/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%94%EF%BC%89%EF%BC%9AStatefulSet%E6%9C%89%E7%8A%B6%E6%80%81%E6%9C%8D%E5%8A%A1/1.png">
+<!-- <link rel="stylesheet" href="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/fancybox/fancybox.css">
+<link rel="stylesheet" href="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/mdui_043tiny/mdui.css">
+<link rel="stylesheet" href="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/animate/htmleaf-demo.css"> -->
+
+<!-- <link href='http://fonts.font.im/css?family=Exo+2:400,500italic' rel='stylesheet' type='text/css'> -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- <link href="https://fonts.googleapis.com/css?family=Noto+Sans+SC:100,300,400,500,700,900" rel="stylesheet"> -->
+<link href="https://fonts.googleapis.com/css2?family=Fredericka+the+Great&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="/lib/fancybox/fancybox.css">
+<link rel="stylesheet" href="/lib/mdui_043tiny/mdui.css">
+<link rel="stylesheet" href="/lib/animate/htmleaf-demo.css">
+
+
+<link rel="stylesheet" href="/lib/iconfont/iconfont.css?v=1690205319857">
+
+<link rel="stylesheet" href="/css/style.css?v=1690205319857">
+
+
+
+
+    
+        <link rel="stylesheet" href="/custom.css?v=1690205319857">
+    
+
+<!-- { src:'lib/animate/jquery.min.js' , async: true},  -->
+<!-- { src:'lib/animate/anime.min.js' , async: true}, -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/2.2.0/anime.min.js"></script>
+<!-- <script src="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/mdui_043tiny/mdui.js"></script>
+<script src="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/fancybox/fancybox.umd.js"></script>
+<script src="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/lax.min.js"></script> -->
+
+<script src="/lib/mdui_043tiny/mdui.js" async></script>
+<script src="/lib/fancybox/fancybox.umd.js" async></script>
+<script src="/lib/lax.min.js" async></script>
+
+
+<script async src="/js/app.js?v=1690205319857"></script>
+
+ 
+
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-4D4ZJ9G024"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag("js", new Date());
+
+  gtag("config", "G-4D4ZJ9G024");
+</script>
+
+<meta name="generator" content="Hexo 6.3.0"></head><body class="nexmoe mdui-drawer-body-left"><div id="nexmoe-background"><div class="nexmoe-bg" style="background-image: url(/img/bg.jpg)"></div><div class="mdui-appbar mdui-shadow-0"><div class="mdui-toolbar"><a class="mdui-btn mdui-btn-icon mdui-ripple" mdui-drawer="{target: &#039;#drawer&#039;, swipe: true}" title="menu"><i class="mdui-icon nexmoefont icon-menu"></i></a><div class="mdui-toolbar-spacer"></div><a class="mdui-btn mdui-btn-icon" href="/" title="Jim Oblivion"><img src="/img/logo.jpg" alt="Jim Oblivion"></a></div></div></div><div id="nexmoe-header"><div class="nexmoe-drawer mdui-drawer" id="drawer">
+    <div class="nexmoe-avatar mdui-ripple">
+        <a href="/" title="Jim Oblivion">
+            <img src="/img/logo.jpg" alt="Jim Oblivion" alt="Jim Oblivion">
+        </a>
+    </div>
+    <div class="nexmoe-count">
+        <div><span>文章</span>24</div>
+        <div><span>标签</span>22</div>
+        <div><span>分类</span>2</div>
+    </div>
+    <div class="nexmoe-list mdui-list" mdui-collapse="{accordion: true}">
+        
+        <a class="nexmoe-list-item mdui-list-item mdui-ripple false" href="/" title="回到首页">
+            <i class="mdui-list-item-icon nexmoefont icon-home"></i>
+            <div class="mdui-list-item-content">
+                回到首页
+            </div>
+        </a>
+        
+        <a class="nexmoe-list-item mdui-list-item mdui-ripple false" href="/archive.html" title="文章归档">
+            <i class="mdui-list-item-icon nexmoefont icon-container"></i>
+            <div class="mdui-list-item-content">
+                文章归档
+            </div>
+        </a>
+        
+        <a class="nexmoe-list-item mdui-list-item mdui-ripple false" href="/2023/07/12/%E8%B5%9E%E5%8A%A9%E6%88%91" title="给我赞助">
+            <i class="mdui-list-item-icon nexmoefont icon-coffee"></i>
+            <div class="mdui-list-item-content">
+                给我赞助
+            </div>
+        </a>
+        
+        <a class="nexmoe-list-item mdui-list-item mdui-ripple false" href="/about" title="关于博主">
+            <i class="mdui-list-item-icon nexmoefont icon-info-circle"></i>
+            <div class="mdui-list-item-content">
+                关于博主
+            </div>
+        </a>
+        
+    </div>
+    
+    
+        
+        
+        
+        
+  <div class="nexmoe-widget-wrap">
+    <h3 class="nexmoe-widget-title">文章分类</h3>
+    <div class="nexmoe-widget">
+
+      <ul class="category-list">
+
+        
+
+
+        
+
+        
+
+        <li class="category-list-item">
+          <a class="category-list-link" href="/categories/Kubernetes安装/">Kubernetes安装</a>
+          <span class="category-list-count">2</span>
+        </li>
+
+        
+
+        <li class="category-list-item">
+          <a class="category-list-link" href="/categories/Kubernetes实战/">Kubernetes实战</a>
+          <span class="category-list-count">21</span>
+        </li>
+
+        
+      </ul>
+
+    </div>
+  </div>
+
+
+    
+        
+        
+  <div class="nexmoe-widget-wrap">
+    <div id="randomtagcloud" class="nexmoe-widget tagcloud nexmoe-rainbow">
+      <a href="/tags/ConfigMap/" style="font-size: 10px;">ConfigMap</a> <a href="/tags/CronJob/" style="font-size: 10px;">CronJob</a> <a href="/tags/DaemonSet/" style="font-size: 10px;">DaemonSet</a> <a href="/tags/EmptyDir/" style="font-size: 10px;">EmptyDir</a> <a href="/tags/HPA/" style="font-size: 10px;">HPA</a> <a href="/tags/HostPath/" style="font-size: 10px;">HostPath</a> <a href="/tags/Ingress/" style="font-size: 10px;">Ingress</a> <a href="/tags/Prometheus/" style="font-size: 10px;">Prometheus</a> <a href="/tags/RBAC/" style="font-size: 10px;">RBAC</a> <a href="/tags/Service/" style="font-size: 10px;">Service</a> <a href="/tags/StatefulSet/" style="font-size: 15px;">StatefulSet</a> <a href="/tags/StorageClass/" style="font-size: 10px;">StorageClass</a> <a href="/tags/deployment/" style="font-size: 10px;">deployment</a> <a href="/tags/docker/" style="font-size: 10px;">docker</a> <a href="/tags/helm/" style="font-size: 10px;">helm</a> <a href="/tags/initC/" style="font-size: 10px;">initC</a> <a href="/tags/k8s/" style="font-size: 20px;">k8s</a> <a href="/tags/label/" style="font-size: 10px;">label</a> <a href="/tags/nfs/" style="font-size: 10px;">nfs</a> <a href="/tags/pod/" style="font-size: 15px;">pod</a> <a href="/tags/pv/" style="font-size: 10px;">pv</a> <a href="/tags/pvc/" style="font-size: 10px;">pvc</a>
+    </div>
+    
+      <script>
+        var maxTagcloud = parseInt(17);
+        var tags_length = parseInt(22);
+        var tags_arr = [];
+        for(var i = 0; i < tags_length; i++){
+          tags_arr.push(i);
+        }
+        tags_arr.sort(function (l, r) {
+          return Math.random() > 0.5 ? -1 : 1;
+        });
+        tags_arr = tags_arr.slice(0, maxTagcloud < tags_length ? tags_length - maxTagcloud : 0);
+        for(var tag_i = 0; tag_i < tags_arr.length; tag_i++){
+          document.getElementById("randomtagcloud").children[tags_arr[tag_i]].style.display = 'none';
+        }
+      </script>
+    
+  </div>
+
+    
+        
+        
+        
+        
+        
+  <div class="nexmoe-widget-wrap">
+    <h3 class="nexmoe-widget-title">访问量统计</h3>
+    <div class="nexmoe-widget">
+      <!-- <script async src="/js/busuanzi.pure.mini.js"></script> -->
+      <script async src="https://cdn.bootcdn.net/ajax/libs/busuanzi/2.3.0/bsz.pure.mini.js"></script>
+      <ul>
+        <li><span class="busuanzi" id="busuanzi_container_site_pv">本站总访问量:<span id="busuanzi_value_site_pv"></span>次</span></li>
+        <li><span class="busuanzi" id="busuanzi_container_site_uv">本站访客数:<span id="busuanzi_value_site_uv"></span>人</span></li>
+      </ul>
+      
+    </div>
+  </div>
+
+    
+        
+   
+    <div class="nexmoe-copyright">
+        &copy; 2023 Jim Oblivion
+        Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>
+        & <a href="https://github.com/theme-nexmoe/hexo-theme-nexmoe" target="_blank">Nexmoe</a>
+        <br><a target="_blank" href="https://beian.miit.gov.cn/">鄂ICP备2020018486号</a>
+
+    </div>
+</div><!-- .nexmoe-drawer --></div><div id="nexmoe-content"><script src="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/animate/firework.js" defer></script><canvas class="fireworks" style="position: fixed;left: 0;top: 0;z-index: 10000; pointer-events: none;"></canvas><div class="nexmoe-primary"><div class="nexmoe-post">
+  <article>
+    
+        <div class="nexmoe-post-cover absolute" style="padding-top: NaN%;"> 
+            <img src="/2023/07/12/Docker和Kubernetes安装/v2-7f33f488e57e150d7788f3ef9e316035_720w.jpg" alt="Kubernetes实战笔记（五）：StatefulSet有状态服务" loading="lazy">
+            <h1>Kubernetes实战笔记（五）：StatefulSet有状态服务</h1>
+        </div>
+    
+    
+    <div class="nexmoe-post-meta">
+    <div class="nexmoe-rainbow">
+        <a class="nexmoefont icon-calendar-fill">2023年07月19日</a>
+        
+            <a class="nexmoefont icon-appstore-fill -link" href="/categories/Kubernetes%E5%AE%9E%E6%88%98/">Kubernetes实战</a>
+        
+        
+    </div>
+    
+    
+    
+    
+    
+</div>
+
+    <h2 id="说明"><a href="#说明" class="headerlink" title="说明"></a>说明</h2><p> StatefulSet是专门针对有状态服务进行部署的一个控制器。</p>
+<h2 id="创建"><a href="#创建" class="headerlink" title="创建"></a>创建</h2><ul>
+<li><p>创建yaml</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">vim nginx-ss.yml</span><br></pre></td></tr></table></figure>
+
+  <figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">---</span></span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Service</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">nginx</span></span><br><span class="line">  <span class="attr">labels:</span></span><br><span class="line">    <span class="attr">app:</span> <span class="string">nginx</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">&quot;zy-test&quot;</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">ports:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">port:</span> <span class="number">80</span></span><br><span class="line">    <span class="attr">name:</span> <span class="string">web</span></span><br><span class="line">  <span class="attr">clusterIP:</span> <span class="string">None</span></span><br><span class="line">  <span class="attr">selector:</span></span><br><span class="line">    <span class="attr">app:</span> <span class="string">nginx</span></span><br><span class="line"><span class="meta">---</span></span><br><span class="line"><span class="attr">apiVersion:</span> <span class="string">apps/v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">StatefulSet</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">web</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">&quot;zy-test&quot;</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">serviceName:</span> <span class="string">&quot;nginx&quot;</span></span><br><span class="line">  <span class="attr">replicas:</span> <span class="number">2</span></span><br><span class="line">  <span class="attr">selector:</span></span><br><span class="line">    <span class="attr">matchLabels:</span></span><br><span class="line">      <span class="attr">app:</span> <span class="string">nginx</span></span><br><span class="line">  <span class="attr">template:</span></span><br><span class="line">    <span class="attr">metadata:</span></span><br><span class="line">      <span class="attr">labels:</span></span><br><span class="line">        <span class="attr">app:</span> <span class="string">nginx</span></span><br><span class="line">    <span class="attr">spec:</span></span><br><span class="line">      <span class="attr">containers:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">nginx</span></span><br><span class="line">        <span class="attr">image:</span> <span class="string">nginx:1.7.9</span></span><br><span class="line">        <span class="attr">ports:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">containerPort:</span> <span class="number">80</span></span><br><span class="line">          <span class="attr">name:</span> <span class="string">web</span></span><br><span class="line">        <span class="attr">volumeMounts:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">www</span></span><br><span class="line">          <span class="attr">mountPath:</span> <span class="string">/usr/share/nginx/html</span></span><br><span class="line">  <span class="attr">volumeClaimTemplates:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">metadata:</span></span><br><span class="line">      <span class="attr">name:</span> <span class="string">www</span></span><br><span class="line">      <span class="attr">annotations:</span></span><br><span class="line">        <span class="attr">volume.alpha.kubernetes.io/storage-class:</span> <span class="string">anything</span></span><br><span class="line">    <span class="attr">spec:</span></span><br><span class="line">      <span class="attr">accessModes:</span> [ <span class="string">&quot;ReadWriteOnce&quot;</span> ]</span><br><span class="line">      <span class="attr">resources:</span></span><br><span class="line">        <span class="attr">requests:</span></span><br><span class="line">          <span class="attr">storage:</span> <span class="string">1Gi</span></span><br></pre></td></tr></table></figure>
+</li>
+<li><p>创建statefulset</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl create -f nginx-ss.yml</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%94%EF%BC%89%EF%BC%9AStatefulSet%E6%9C%89%E7%8A%B6%E6%80%81%E6%9C%8D%E5%8A%A1/1.png" class="" title="在这里插入图片描述">
+</li>
+<li><p>查看pod</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test get pod</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%94%EF%BC%89%EF%BC%9AStatefulSet%E6%9C%89%E7%8A%B6%E6%80%81%E6%9C%8D%E5%8A%A1/2.png" class="" title="在这里插入图片描述">
+</li>
+<li><p>查看pvc</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test get pvc</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%94%EF%BC%89%EF%BC%9AStatefulSet%E6%9C%89%E7%8A%B6%E6%80%81%E6%9C%8D%E5%8A%A1/3.png" class="" title="在这里插入图片描述">
+</li>
+<li><p>查看sts</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test get sts</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%94%EF%BC%89%EF%BC%9AStatefulSet%E6%9C%89%E7%8A%B6%E6%80%81%E6%9C%8D%E5%8A%A1/4.png" class="" title="在这里插入图片描述">
+</li>
+<li><p>查看私有卷</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test get pvc</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>查看pvc的描述，此时statefulSet创建失败，原因是没有可用的持久卷</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test describe pvc</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%94%EF%BC%89%EF%BC%9AStatefulSet%E6%9C%89%E7%8A%B6%E6%80%81%E6%9C%8D%E5%8A%A1/5.png" class="" title="在这里插入图片描述">
+</li>
+<li><p>查看sts</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test get sts</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%94%EF%BC%89%EF%BC%9AStatefulSet%E6%9C%89%E7%8A%B6%E6%80%81%E6%9C%8D%E5%8A%A1/6.png" class="" title="在这里插入图片描述">
+</li>
+<li><p>所以此处将存储卷相关内容进行删除，并且重新创建sts</p>
+<p>  StatefulSet中每个Pod的DNS格式为<code>statefulSetName-(0..N-1).serviceName.namespace.svc.cluster.local</code></p>
+<ul>
+<li>serviceName为Headless Service的名字</li>
+<li>0..N-1为Pod所在的序号，从0开始到N-1</li>
+<li>statefulSetName为StatefulSet的名字</li>
+<li>namespace为服务所在的namespace，Headless Service和StatefulSet必须在想用的namespace</li>
+<li>.cluster.local为Cluster Domain</li>
+</ul>
+  <figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 以下需要删除的内容</span></span><br><span class="line"><span class="attr">volumeMounts:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">www</span></span><br><span class="line">        <span class="attr">mountPath:</span> <span class="string">/usr/share/nginx/html</span></span><br><span class="line"><span class="attr">volumeClaimTemplates:</span></span><br><span class="line"><span class="bullet">-</span> <span class="attr">metadata:</span></span><br><span class="line">    <span class="attr">name:</span> <span class="string">www</span></span><br><span class="line">    <span class="attr">annotations:</span></span><br><span class="line">        <span class="attr">volume.alpha.kubernetes.io/storage-class:</span> <span class="string">anything</span></span><br><span class="line">    <span class="attr">spec:</span></span><br><span class="line">    <span class="attr">accessModes:</span> [ <span class="string">&quot;ReadWriteOnce&quot;</span> ]</span><br><span class="line">    <span class="attr">resources:</span></span><br><span class="line">        <span class="attr">requests:</span></span><br><span class="line">        <span class="attr">storage:</span> <span class="string">1Gi</span></span><br></pre></td></tr></table></figure>
+</li>
+<li><p>创建成功后，进入容器内部，解析dns并且使用web-0.nginx访问创建的容器</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl run -it --image busybox:1.28.4 dns-test --restart=Never --<span class="built_in">rm</span> /bin/sh</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%94%EF%BC%89%EF%BC%9AStatefulSet%E6%9C%89%E7%8A%B6%E6%80%81%E6%9C%8D%E5%8A%A1/7.png" class="" title="在这里插入图片描述"></li>
+</ul>
+<h2 id="操作"><a href="#操作" class="headerlink" title="操作"></a>操作</h2><h3 id="sts扩容和缩容"><a href="#sts扩容和缩容" class="headerlink" title="sts扩容和缩容"></a>sts扩容和缩容</h3><ul>
+<li><p>执行扩容</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test scale  statefulset web --replicas=3</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%94%EF%BC%89%EF%BC%9AStatefulSet%E6%9C%89%E7%8A%B6%E6%80%81%E6%9C%8D%E5%8A%A1/8.png" class="" title="在这里插入图片描述">
+</li>
+<li><p>执行缩容</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test scale  statefulset web --replicas=2</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%94%EF%BC%89%EF%BC%9AStatefulSet%E6%9C%89%E7%8A%B6%E6%80%81%E6%9C%8D%E5%8A%A1/9.png" class="" title="在这里插入图片描述">
+</li>
+<li><p>查看扩容和缩容的过程</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test describe sts web</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%94%EF%BC%89%EF%BC%9AStatefulSet%E6%9C%89%E7%8A%B6%E6%80%81%E6%9C%8D%E5%8A%A1/10.png" class="" title="在这里插入图片描述"></li>
+</ul>
+<h3 id="sts更新"><a href="#sts更新" class="headerlink" title="sts更新"></a>sts更新</h3><ul>
+<li><p>镜像更新</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test patch statefulset web --<span class="built_in">type</span>=<span class="string">&#x27;json&#x27;</span> -p=<span class="string">&#x27;[&#123;&quot;op&quot;:&quot;replace&quot;,&quot;path&quot;:&quot;/spec/template/spec/containers/0/image&quot;,&quot;value&quot;:&quot;nginx:1.9.1&quot;&#125;]&#x27;</span></span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%94%EF%BC%89%EF%BC%9AStatefulSet%E6%9C%89%E7%8A%B6%E6%80%81%E6%9C%8D%E5%8A%A1/11.png" class="" title="在这里插入图片描述">
+</li>
+<li><p>查看更新状态</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test rollout status  statefulset web</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%94%EF%BC%89%EF%BC%9AStatefulSet%E6%9C%89%E7%8A%B6%E6%80%81%E6%9C%8D%E5%8A%A1/12.png" class="" title="在这里插入图片描述">
+</li>
+<li><p>查看更新历史</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test rollout <span class="built_in">history</span>  statefulset web</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%94%EF%BC%89%EF%BC%9AStatefulSet%E6%9C%89%E7%8A%B6%E6%80%81%E6%9C%8D%E5%8A%A1/13.png" class="" title="在这里插入图片描述">
+</li>
+<li><p>回退到指定的历史版本</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test rollout <span class="built_in">history</span>  statefulset web --revision=2</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%94%EF%BC%89%EF%BC%9AStatefulSet%E6%9C%89%E7%8A%B6%E6%80%81%E6%9C%8D%E5%8A%A1/14.png" class="" title="在这里插入图片描述"></li>
+</ul>
+
+    <p class="articleSlot"><span class="splitLine"></span><img class="give" src="/img/icons8-coin-96.png" loading="lazy"><img class="buyMeCoffee" src="/img/buymecoffe.jpg" loading="lazy"></p>
+
+  </article>
+
+  
+      
+    <div class="nexmoe-post-copyright">
+        <strong>本文作者：</strong>Jim Oblivion<br>
+        <strong>本文链接：</strong><a href="http://jimoblivion.github.io/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%94%EF%BC%89%EF%BC%9AStatefulSet%E6%9C%89%E7%8A%B6%E6%80%81%E6%9C%8D%E5%8A%A1/" title="http:&#x2F;&#x2F;jimoblivion.github.io&#x2F;2023&#x2F;07&#x2F;19&#x2F;Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%94%EF%BC%89%EF%BC%9AStatefulSet%E6%9C%89%E7%8A%B6%E6%80%81%E6%9C%8D%E5%8A%A1&#x2F;" target="_blank" rel="noopener">http:&#x2F;&#x2F;jimoblivion.github.io&#x2F;2023&#x2F;07&#x2F;19&#x2F;Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E4%BA%94%EF%BC%89%EF%BC%9AStatefulSet%E6%9C%89%E7%8A%B6%E6%80%81%E6%9C%8D%E5%8A%A1&#x2F;</a><br>
+        
+            <strong>版权声明：</strong>本文采用 <a href="https://creativecommons.org/licenses/by-nc-sa/3.0/cn/deed.zh" target="_blank">CC BY-NC-SA 3.0 CN</a> 协议进行许可
+
+        
+    </div>
+
+
+  
+  
+  <div class="nexmoe-post-meta nexmoe-rainbow">
+   
+    
+        <a class="nexmoefont icon-tag-fill -none-link" href="/tags/StatefulSet/" rel="tag">StatefulSet</a> <a class="nexmoefont icon-tag-fill -none-link" href="/tags/k8s/" rel="tag">k8s</a>
+    
+</div>
+  
+  
+    <script async src="/js/copy-codeblock.js?v=1690205319718"></script>
+  
+
+  
+      <div class="nexmoe-post-footer">
+          放弃了就不该后悔，失去了就不该回忆。
+
+      </div>
+  
+</div></div><div class="nexmoe-post-right">    <div class="nexmoe-fixed">
+        <div class="nexmoe-tool">
+
+            
+
+            
+            
+            <button class="mdui-fab catalog" style="overflow:unset;">
+                <i class="nexmoefont icon-i-catalog"></i>
+                <div class="nexmoe-toc">
+                    <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E8%AF%B4%E6%98%8E"><span class="toc-number">1.</span> <span class="toc-text">说明</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%9B%E5%BB%BA"><span class="toc-number">2.</span> <span class="toc-text">创建</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%93%8D%E4%BD%9C"><span class="toc-number">3.</span> <span class="toc-text">操作</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#sts%E6%89%A9%E5%AE%B9%E5%92%8C%E7%BC%A9%E5%AE%B9"><span class="toc-number">3.1.</span> <span class="toc-text">sts扩容和缩容</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#sts%E6%9B%B4%E6%96%B0"><span class="toc-number">3.2.</span> <span class="toc-text">sts更新</span></a></li></ol></li></ol>
+                </div>
+            </button>
+            
+
+            
+
+            <a href="#nexmoe-content" class="backtop toc-link" aria-label="Back To Top" title="top"><button class="mdui-fab mdui-ripple"><i class="nexmoefont icon-caret-top"></i></button></a>
+        </div>
+    </div>
+</div></div><div id="nexmoe-footer"><script src="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/animate/fish.js" defer></script><div id="footer-wrap"></div><!--!--></div><div><div id="nexmoe-search-space">
+	<div class="search-container">
+		<div class="search-header">
+			<div class="search-input-container">
+				<input
+					class="search-input"
+					type="text"
+					placeholder="搜索"
+					oninput="sinput();"
+				/>
+			</div>
+			<a class="search-close" onclick="sclose();">×</a>
+		</div>
+		<div class="search-body"></div>
+	</div>
+</div>
+</div><div><script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2058306854838448" crossorigin="anonymous"></script>
+</div></body></html>

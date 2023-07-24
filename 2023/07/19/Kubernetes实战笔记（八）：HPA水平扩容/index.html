@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="zh"><head>
+<title>Kubernetes实战笔记（八）：HPA水平扩容 - Oblivion</title>
+<meta charset="UTF-8">
+<meta name="keywords" content="">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+<meta name="referrer" content="no-referrer-when-downgrade">
+
+<link rel="shortcut icon" href="/img/favicon.ico" type="image/x-icon" />
+<meta name="description" content="Pod自动扩容 可以根据cpu使用率或自定义指标（metrics）自动对pod进行扩容&#x2F;缩容。  1234567• 控制管理器每隔30s( 可以通过-horizontal-pod-autosacaler-sync-period修改)查询metrics的资源使用情况• 支持三种metrics类型    ○ 预定义metrics(比如Pod的cpu)以利用率的方式计算    ○ 自定义的Po">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Kubernetes实战笔记（八）：HPA水平扩容">
+<meta property="og:url" content="http://jimoblivion.github.io/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%85%AB%EF%BC%89%EF%BC%9AHPA%E6%B0%B4%E5%B9%B3%E6%89%A9%E5%AE%B9/index.html">
+<meta property="og:site_name" content="Oblivion">
+<meta property="og:description" content="Pod自动扩容 可以根据cpu使用率或自定义指标（metrics）自动对pod进行扩容&#x2F;缩容。  1234567• 控制管理器每隔30s( 可以通过-horizontal-pod-autosacaler-sync-period修改)查询metrics的资源使用情况• 支持三种metrics类型    ○ 预定义metrics(比如Pod的cpu)以利用率的方式计算    ○ 自定义的Po">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%85%AB%EF%BC%89%EF%BC%9AHPA%E6%B0%B4%E5%B9%B3%E6%89%A9%E5%AE%B9/1.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%85%AB%EF%BC%89%EF%BC%9AHPA%E6%B0%B4%E5%B9%B3%E6%89%A9%E5%AE%B9/2.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%85%AB%EF%BC%89%EF%BC%9AHPA%E6%B0%B4%E5%B9%B3%E6%89%A9%E5%AE%B9/3.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%85%AB%EF%BC%89%EF%BC%9AHPA%E6%B0%B4%E5%B9%B3%E6%89%A9%E5%AE%B9/4.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%85%AB%EF%BC%89%EF%BC%9AHPA%E6%B0%B4%E5%B9%B3%E6%89%A9%E5%AE%B9/5.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%85%AB%EF%BC%89%EF%BC%9AHPA%E6%B0%B4%E5%B9%B3%E6%89%A9%E5%AE%B9/6.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%85%AB%EF%BC%89%EF%BC%9AHPA%E6%B0%B4%E5%B9%B3%E6%89%A9%E5%AE%B9/7.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%85%AB%EF%BC%89%EF%BC%9AHPA%E6%B0%B4%E5%B9%B3%E6%89%A9%E5%AE%B9/8.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%85%AB%EF%BC%89%EF%BC%9AHPA%E6%B0%B4%E5%B9%B3%E6%89%A9%E5%AE%B9/9.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%85%AB%EF%BC%89%EF%BC%9AHPA%E6%B0%B4%E5%B9%B3%E6%89%A9%E5%AE%B9/10.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%85%AB%EF%BC%89%EF%BC%9AHPA%E6%B0%B4%E5%B9%B3%E6%89%A9%E5%AE%B9/11.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%85%AB%EF%BC%89%EF%BC%9AHPA%E6%B0%B4%E5%B9%B3%E6%89%A9%E5%AE%B9/12.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%85%AB%EF%BC%89%EF%BC%9AHPA%E6%B0%B4%E5%B9%B3%E6%89%A9%E5%AE%B9/13.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%85%AB%EF%BC%89%EF%BC%9AHPA%E6%B0%B4%E5%B9%B3%E6%89%A9%E5%AE%B9/14.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%85%AB%EF%BC%89%EF%BC%9AHPA%E6%B0%B4%E5%B9%B3%E6%89%A9%E5%AE%B9/15.png">
+<meta property="article:published_time" content="2023-07-19T13:10:35.000Z">
+<meta property="article:modified_time" content="2023-07-20T03:27:10.578Z">
+<meta property="article:author" content="Jim Oblivion">
+<meta property="article:tag" content="k8s">
+<meta property="article:tag" content="HPA">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://jimoblivion.github.io/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%85%AB%EF%BC%89%EF%BC%9AHPA%E6%B0%B4%E5%B9%B3%E6%89%A9%E5%AE%B9/1.png">
+<!-- <link rel="stylesheet" href="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/fancybox/fancybox.css">
+<link rel="stylesheet" href="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/mdui_043tiny/mdui.css">
+<link rel="stylesheet" href="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/animate/htmleaf-demo.css"> -->
+
+<!-- <link href='http://fonts.font.im/css?family=Exo+2:400,500italic' rel='stylesheet' type='text/css'> -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- <link href="https://fonts.googleapis.com/css?family=Noto+Sans+SC:100,300,400,500,700,900" rel="stylesheet"> -->
+<link href="https://fonts.googleapis.com/css2?family=Fredericka+the+Great&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="/lib/fancybox/fancybox.css">
+<link rel="stylesheet" href="/lib/mdui_043tiny/mdui.css">
+<link rel="stylesheet" href="/lib/animate/htmleaf-demo.css">
+
+
+<link rel="stylesheet" href="/lib/iconfont/iconfont.css?v=1690205319851">
+
+<link rel="stylesheet" href="/css/style.css?v=1690205319851">
+
+
+
+
+    
+        <link rel="stylesheet" href="/custom.css?v=1690205319851">
+    
+
+<!-- { src:'lib/animate/jquery.min.js' , async: true},  -->
+<!-- { src:'lib/animate/anime.min.js' , async: true}, -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/2.2.0/anime.min.js"></script>
+<!-- <script src="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/mdui_043tiny/mdui.js"></script>
+<script src="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/fancybox/fancybox.umd.js"></script>
+<script src="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/lax.min.js"></script> -->
+
+<script src="/lib/mdui_043tiny/mdui.js" async></script>
+<script src="/lib/fancybox/fancybox.umd.js" async></script>
+<script src="/lib/lax.min.js" async></script>
+
+
+<script async src="/js/app.js?v=1690205319851"></script>
+
+ 
+
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-4D4ZJ9G024"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag("js", new Date());
+
+  gtag("config", "G-4D4ZJ9G024");
+</script>
+
+<meta name="generator" content="Hexo 6.3.0"></head><body class="nexmoe mdui-drawer-body-left"><div id="nexmoe-background"><div class="nexmoe-bg" style="background-image: url(/img/bg.jpg)"></div><div class="mdui-appbar mdui-shadow-0"><div class="mdui-toolbar"><a class="mdui-btn mdui-btn-icon mdui-ripple" mdui-drawer="{target: &#039;#drawer&#039;, swipe: true}" title="menu"><i class="mdui-icon nexmoefont icon-menu"></i></a><div class="mdui-toolbar-spacer"></div><a class="mdui-btn mdui-btn-icon" href="/" title="Jim Oblivion"><img src="/img/logo.jpg" alt="Jim Oblivion"></a></div></div></div><div id="nexmoe-header"><div class="nexmoe-drawer mdui-drawer" id="drawer">
+    <div class="nexmoe-avatar mdui-ripple">
+        <a href="/" title="Jim Oblivion">
+            <img src="/img/logo.jpg" alt="Jim Oblivion" alt="Jim Oblivion">
+        </a>
+    </div>
+    <div class="nexmoe-count">
+        <div><span>文章</span>24</div>
+        <div><span>标签</span>22</div>
+        <div><span>分类</span>2</div>
+    </div>
+    <div class="nexmoe-list mdui-list" mdui-collapse="{accordion: true}">
+        
+        <a class="nexmoe-list-item mdui-list-item mdui-ripple false" href="/" title="回到首页">
+            <i class="mdui-list-item-icon nexmoefont icon-home"></i>
+            <div class="mdui-list-item-content">
+                回到首页
+            </div>
+        </a>
+        
+        <a class="nexmoe-list-item mdui-list-item mdui-ripple false" href="/archive.html" title="文章归档">
+            <i class="mdui-list-item-icon nexmoefont icon-container"></i>
+            <div class="mdui-list-item-content">
+                文章归档
+            </div>
+        </a>
+        
+        <a class="nexmoe-list-item mdui-list-item mdui-ripple false" href="/2023/07/12/%E8%B5%9E%E5%8A%A9%E6%88%91" title="给我赞助">
+            <i class="mdui-list-item-icon nexmoefont icon-coffee"></i>
+            <div class="mdui-list-item-content">
+                给我赞助
+            </div>
+        </a>
+        
+        <a class="nexmoe-list-item mdui-list-item mdui-ripple false" href="/about" title="关于博主">
+            <i class="mdui-list-item-icon nexmoefont icon-info-circle"></i>
+            <div class="mdui-list-item-content">
+                关于博主
+            </div>
+        </a>
+        
+    </div>
+    
+    
+        
+        
+        
+        
+  <div class="nexmoe-widget-wrap">
+    <h3 class="nexmoe-widget-title">文章分类</h3>
+    <div class="nexmoe-widget">
+
+      <ul class="category-list">
+
+        
+
+
+        
+
+        
+
+        <li class="category-list-item">
+          <a class="category-list-link" href="/categories/Kubernetes安装/">Kubernetes安装</a>
+          <span class="category-list-count">2</span>
+        </li>
+
+        
+
+        <li class="category-list-item">
+          <a class="category-list-link" href="/categories/Kubernetes实战/">Kubernetes实战</a>
+          <span class="category-list-count">21</span>
+        </li>
+
+        
+      </ul>
+
+    </div>
+  </div>
+
+
+    
+        
+        
+  <div class="nexmoe-widget-wrap">
+    <div id="randomtagcloud" class="nexmoe-widget tagcloud nexmoe-rainbow">
+      <a href="/tags/ConfigMap/" style="font-size: 10px;">ConfigMap</a> <a href="/tags/CronJob/" style="font-size: 10px;">CronJob</a> <a href="/tags/DaemonSet/" style="font-size: 10px;">DaemonSet</a> <a href="/tags/EmptyDir/" style="font-size: 10px;">EmptyDir</a> <a href="/tags/HPA/" style="font-size: 10px;">HPA</a> <a href="/tags/HostPath/" style="font-size: 10px;">HostPath</a> <a href="/tags/Ingress/" style="font-size: 10px;">Ingress</a> <a href="/tags/Prometheus/" style="font-size: 10px;">Prometheus</a> <a href="/tags/RBAC/" style="font-size: 10px;">RBAC</a> <a href="/tags/Service/" style="font-size: 10px;">Service</a> <a href="/tags/StatefulSet/" style="font-size: 15px;">StatefulSet</a> <a href="/tags/StorageClass/" style="font-size: 10px;">StorageClass</a> <a href="/tags/deployment/" style="font-size: 10px;">deployment</a> <a href="/tags/docker/" style="font-size: 10px;">docker</a> <a href="/tags/helm/" style="font-size: 10px;">helm</a> <a href="/tags/initC/" style="font-size: 10px;">initC</a> <a href="/tags/k8s/" style="font-size: 20px;">k8s</a> <a href="/tags/label/" style="font-size: 10px;">label</a> <a href="/tags/nfs/" style="font-size: 10px;">nfs</a> <a href="/tags/pod/" style="font-size: 15px;">pod</a> <a href="/tags/pv/" style="font-size: 10px;">pv</a> <a href="/tags/pvc/" style="font-size: 10px;">pvc</a>
+    </div>
+    
+      <script>
+        var maxTagcloud = parseInt(17);
+        var tags_length = parseInt(22);
+        var tags_arr = [];
+        for(var i = 0; i < tags_length; i++){
+          tags_arr.push(i);
+        }
+        tags_arr.sort(function (l, r) {
+          return Math.random() > 0.5 ? -1 : 1;
+        });
+        tags_arr = tags_arr.slice(0, maxTagcloud < tags_length ? tags_length - maxTagcloud : 0);
+        for(var tag_i = 0; tag_i < tags_arr.length; tag_i++){
+          document.getElementById("randomtagcloud").children[tags_arr[tag_i]].style.display = 'none';
+        }
+      </script>
+    
+  </div>
+
+    
+        
+        
+        
+        
+        
+  <div class="nexmoe-widget-wrap">
+    <h3 class="nexmoe-widget-title">访问量统计</h3>
+    <div class="nexmoe-widget">
+      <!-- <script async src="/js/busuanzi.pure.mini.js"></script> -->
+      <script async src="https://cdn.bootcdn.net/ajax/libs/busuanzi/2.3.0/bsz.pure.mini.js"></script>
+      <ul>
+        <li><span class="busuanzi" id="busuanzi_container_site_pv">本站总访问量:<span id="busuanzi_value_site_pv"></span>次</span></li>
+        <li><span class="busuanzi" id="busuanzi_container_site_uv">本站访客数:<span id="busuanzi_value_site_uv"></span>人</span></li>
+      </ul>
+      
+    </div>
+  </div>
+
+    
+        
+   
+    <div class="nexmoe-copyright">
+        &copy; 2023 Jim Oblivion
+        Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>
+        & <a href="https://github.com/theme-nexmoe/hexo-theme-nexmoe" target="_blank">Nexmoe</a>
+        <br><a target="_blank" href="https://beian.miit.gov.cn/">鄂ICP备2020018486号</a>
+
+    </div>
+</div><!-- .nexmoe-drawer --></div><div id="nexmoe-content"><script src="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/animate/firework.js" defer></script><canvas class="fireworks" style="position: fixed;left: 0;top: 0;z-index: 10000; pointer-events: none;"></canvas><div class="nexmoe-primary"><div class="nexmoe-post">
+  <article>
+    
+        <div class="nexmoe-post-cover absolute" style="padding-top: NaN%;"> 
+            <img src="/2023/07/12/Docker和Kubernetes安装/v2-7f33f488e57e150d7788f3ef9e316035_720w.jpg" alt="Kubernetes实战笔记（八）：HPA水平扩容" loading="lazy">
+            <h1>Kubernetes实战笔记（八）：HPA水平扩容</h1>
+        </div>
+    
+    
+    <div class="nexmoe-post-meta">
+    <div class="nexmoe-rainbow">
+        <a class="nexmoefont icon-calendar-fill">2023年07月19日</a>
+        
+            <a class="nexmoefont icon-appstore-fill -link" href="/categories/Kubernetes%E5%AE%9E%E6%88%98/">Kubernetes实战</a>
+        
+        
+    </div>
+    
+    
+    
+    
+    
+</div>
+
+    <h2 id="Pod自动扩容"><a href="#Pod自动扩容" class="headerlink" title="Pod自动扩容"></a>Pod自动扩容</h2><blockquote>
+<p>可以根据cpu使用率或自定义指标（metrics）自动对pod进行扩容&#x2F;缩容。</p>
+</blockquote>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">• 控制管理器每隔30s( 可以通过-horizontal-pod-autosacaler-sync-period修改)查询metrics的资源使用情况</span><br><span class="line">• 支持三种metrics类型</span><br><span class="line">    ○ 预定义metrics(比如Pod的cpu)以利用率的方式计算</span><br><span class="line">    ○ 自定义的Pod metrics，以原始值（raw value）的方式计算</span><br><span class="line">    ○ 自定义的object metrics</span><br><span class="line">• 支持两种metics查询方式：Heapster和自定义的REST API</span><br><span class="line">• 支持多metrics查询方式</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>Horizontal Pod AutoScaler（HPA）自动扩容和缩容</p>
+</blockquote>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">• 通过观察pod的cpu、内存使用情况或自定义metrics指标进行自动的扩容或者缩容pod的数量。</span><br><span class="line">• 通常用于Deployment， 不适用于无法扩容/缩容的对象，比如DaemonSet。</span><br><span class="line">• 控制管理器每隔30s查询一次metircs的资源使用情况</span><br></pre></td></tr></table></figure>
+
+<h2 id="创建资源"><a href="#创建资源" class="headerlink" title="创建资源"></a>创建资源</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">vim nginx-deploy.yml</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">apps/v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Deployment</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">nginx-deploy</span></span><br><span class="line">  <span class="attr">labels:</span></span><br><span class="line">    <span class="attr">app:</span> <span class="string">nginx-deploy</span></span><br><span class="line">    <span class="attr">test:</span> <span class="number">1.1</span><span class="number">.0</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">&#x27;zy-test&#x27;</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">replicas:</span> <span class="number">1</span></span><br><span class="line">  <span class="attr">revisionHistoryLimit:</span> <span class="number">10</span></span><br><span class="line">  <span class="attr">selector:</span></span><br><span class="line">    <span class="attr">matchLabels:</span></span><br><span class="line">      <span class="attr">app:</span> <span class="string">nginx-deploy</span></span><br><span class="line">  <span class="attr">template:</span></span><br><span class="line">    <span class="attr">metadata:</span></span><br><span class="line">      <span class="attr">labels:</span></span><br><span class="line">        <span class="attr">app:</span> <span class="string">nginx-deploy</span></span><br><span class="line">    <span class="attr">spec:</span></span><br><span class="line">      <span class="attr">terminationGracePeriodSeconds:</span> <span class="number">15</span></span><br><span class="line">      <span class="attr">containers:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">nginx</span></span><br><span class="line">        <span class="attr">image:</span> <span class="string">nginx:1.7.9</span></span><br><span class="line">        <span class="attr">imagePullPolicy:</span> <span class="string">IfNotPresent</span></span><br><span class="line">        <span class="attr">resources:</span></span><br><span class="line">          <span class="attr">requests:</span></span><br><span class="line">            <span class="attr">cpu:</span> <span class="string">10m</span></span><br><span class="line">            <span class="attr">memory:</span> <span class="string">128Mi</span></span><br><span class="line">          <span class="attr">limits:</span></span><br><span class="line">            <span class="attr">cpu:</span> <span class="string">200m</span></span><br><span class="line">            <span class="attr">memory:</span> <span class="string">256Mi</span></span><br><span class="line">      <span class="attr">restartPolicy:</span> <span class="string">Always</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="cpu、内存指标的监控"><a href="#cpu、内存指标的监控" class="headerlink" title="cpu、内存指标的监控"></a>cpu、内存指标的监控</h2><ul>
+<li><p>设置指标</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test autoscale deploy nginx-deploy --cpu-percent=20 --min=2 --max=5</span><br></pre></td></tr></table></figure>
+
+  <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">说明：</span><br><span class="line">--cpu-percent指的是cpu的百分比达到就进行扩容</span><br><span class="line">--min扩容以后最小的实例数是2个</span><br><span class="line">--max扩容以后最大的实例数是5个</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>查看deployment的状态，发现已经帮我们扩容到2个replicas</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test get deploy</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%85%AB%EF%BC%89%EF%BC%9AHPA%E6%B0%B4%E5%B9%B3%E6%89%A9%E5%AE%B9/1.png" class="" title="在这里插入图片描述">
+</li>
+<li><p>监控资源的占用</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test top pod nginx-deploy-57d84f45f8-mrtqk</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>API不可用</p>
+  <img src="/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%85%AB%EF%BC%89%EF%BC%9AHPA%E6%B0%B4%E5%B9%B3%E6%89%A9%E5%AE%B9/2.png" class="" title="在这里插入图片描述">
+</li>
+<li><p>安装组件</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">wget https://github.com/kubernetes-sigs/metrics-server/releases/download/v0.6.2/components.yaml -O metrics-server-components.yaml</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>编辑文件，找到containers进行修改</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">vim metrics-server-components.yaml</span><br></pre></td></tr></table></figure>
+  <figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">spec:</span></span><br><span class="line">   <span class="attr">containers:</span></span><br><span class="line">   <span class="bullet">-</span> <span class="attr">args:</span></span><br><span class="line">     <span class="bullet">-</span> <span class="string">--cert-dir=/tmp</span></span><br><span class="line">     <span class="bullet">-</span> <span class="string">--secure-port=4443</span></span><br><span class="line">     <span class="bullet">-</span> <span class="string">--kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname</span></span><br><span class="line">     <span class="bullet">-</span> <span class="string">--kubelet-use-node-status-port</span></span><br><span class="line">     <span class="bullet">-</span> <span class="string">--metric-resolution=15s</span></span><br><span class="line">     <span class="bullet">-</span> <span class="string">--kubelet-insecure-tls</span> <span class="comment"># 默认不使用https</span></span><br><span class="line">     <span class="attr">image:</span> <span class="string">registry.cn-hangzhou.aliyuncs.com/google_containers/metrics-server:v0.6.2</span> <span class="comment"># 使用国内镜像地址</span></span><br></pre></td></tr></table></figure>
+</li>
+<li><p>安装工具</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl apply -f metrics-server-components.yam</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%85%AB%EF%BC%89%EF%BC%9AHPA%E6%B0%B4%E5%B9%B3%E6%89%A9%E5%AE%B9/3.png" class="" title="在这里插入图片描述">
+</li>
+<li><p>查看运行状态</p>
+  <img src="/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%85%AB%EF%BC%89%EF%BC%9AHPA%E6%B0%B4%E5%B9%B3%E6%89%A9%E5%AE%B9/4.png" class="" title="在这里插入图片描述">
+</li>
+<li><p>检测资源的占用情况</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test  top pods</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%85%AB%EF%BC%89%EF%BC%9AHPA%E6%B0%B4%E5%B9%B3%E6%89%A9%E5%AE%B9/5.png" class="" title="在这里插入图片描述"></li>
+</ul>
+<h2 id="测试，让nginx的并发压力升高"><a href="#测试，让nginx的并发压力升高" class="headerlink" title="测试，让nginx的并发压力升高"></a>测试，让nginx的并发压力升高</h2><h3 id="创建SVC"><a href="#创建SVC" class="headerlink" title="创建SVC"></a>创建SVC</h3><ul>
+<li><p>确认我们pod的ip端口</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test get pods -o wide</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%85%AB%EF%BC%89%EF%BC%9AHPA%E6%B0%B4%E5%B9%B3%E6%89%A9%E5%AE%B9/6.png" class="" title="在这里插入图片描述">
+</li>
+<li><p>新建yaml</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">vim nginx-svc.yml</span><br></pre></td></tr></table></figure>
+
+  <figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Service</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">nginx-svc</span></span><br><span class="line">  <span class="attr">labels:</span></span><br><span class="line">    <span class="attr">app:</span> <span class="string">nginx</span></span><br><span class="line">  <span class="attr">namespace:</span> <span class="string">&quot;zy-test&quot;</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">selector:</span></span><br><span class="line">    <span class="attr">app:</span> <span class="string">negix-deploy</span></span><br><span class="line">  <span class="attr">ports:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">port:</span> <span class="number">80</span></span><br><span class="line">    <span class="attr">targetPort:</span> <span class="number">80</span></span><br><span class="line">    <span class="attr">name:</span> <span class="string">web</span></span><br><span class="line">  <span class="attr">type:</span> <span class="string">NodePort</span></span><br></pre></td></tr></table></figure>
+</li>
+<li><p>创建svc</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl create -f nginx-svc.yml</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%85%AB%EF%BC%89%EF%BC%9AHPA%E6%B0%B4%E5%B9%B3%E6%89%A9%E5%AE%B9/7.png" class="" title="在这里插入图片描述">
+</li>
+<li><p>查看创建的svc</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test get svc</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%85%AB%EF%BC%89%EF%BC%9AHPA%E6%B0%B4%E5%B9%B3%E6%89%A9%E5%AE%B9/8.png" class="" title="在这里插入图片描述"></li>
+</ul>
+<h3 id="使用一个死循环的脚本进行测试"><a href="#使用一个死循环的脚本进行测试" class="headerlink" title="使用一个死循环的脚本进行测试"></a>使用一个死循环的脚本进行测试</h3><ul>
+<li><p>执行脚本</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">while</span> <span class="literal">true</span>; <span class="keyword">do</span> wget -q -O- http://10.244.249.52 &gt; /dev/null ; <span class="keyword">done</span></span><br></pre></td></tr></table></figure>
+</li>
+<li><p>查看我们的hpa，已经超过了20%</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test get hpa</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%85%AB%EF%BC%89%EF%BC%9AHPA%E6%B0%B4%E5%B9%B3%E6%89%A9%E5%AE%B9/9.png" class="" title="在这里插入图片描述">
+</li>
+<li><p>查看资源使用情况</p>
+  <img src="/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%85%AB%EF%BC%89%EF%BC%9AHPA%E6%B0%B4%E5%B9%B3%E6%89%A9%E5%AE%B9/10.png" class="" title="在这里插入图片描述">
+</li>
+<li><p>查看deploy， 已经帮我们进行了扩容</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test get deploy</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%85%AB%EF%BC%89%EF%BC%9AHPA%E6%B0%B4%E5%B9%B3%E6%89%A9%E5%AE%B9/11.png" class="" title="在这里插入图片描述">
+</li>
+<li><p>结束死循环</p>
+  <img src="/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%85%AB%EF%BC%89%EF%BC%9AHPA%E6%B0%B4%E5%B9%B3%E6%89%A9%E5%AE%B9/12.png" class="" title="在这里插入图片描述">
+</li>
+<li><p>稍等再查看我们的HPA和top</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test get hpa</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%85%AB%EF%BC%89%EF%BC%9AHPA%E6%B0%B4%E5%B9%B3%E6%89%A9%E5%AE%B9/13.png" class="" title="在这里插入图片描述">
+
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test  top po</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%85%AB%EF%BC%89%EF%BC%9AHPA%E6%B0%B4%E5%B9%B3%E6%89%A9%E5%AE%B9/14.png" class="" title="在这里插入图片描述">
+</li>
+<li><p>资源降下来后要等一段时间后才会慢慢帮助我们缩容</p>
+  <img src="/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%85%AB%EF%BC%89%EF%BC%9AHPA%E6%B0%B4%E5%B9%B3%E6%89%A9%E5%AE%B9/15.png" class="" title="在这里插入图片描述"></li>
+</ul>
+
+    <p class="articleSlot"><span class="splitLine"></span><img class="give" src="/img/icons8-coin-96.png" loading="lazy"><img class="buyMeCoffee" src="/img/buymecoffe.jpg" loading="lazy"></p>
+
+  </article>
+
+  
+      
+    <div class="nexmoe-post-copyright">
+        <strong>本文作者：</strong>Jim Oblivion<br>
+        <strong>本文链接：</strong><a href="http://jimoblivion.github.io/2023/07/19/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%85%AB%EF%BC%89%EF%BC%9AHPA%E6%B0%B4%E5%B9%B3%E6%89%A9%E5%AE%B9/" title="http:&#x2F;&#x2F;jimoblivion.github.io&#x2F;2023&#x2F;07&#x2F;19&#x2F;Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%85%AB%EF%BC%89%EF%BC%9AHPA%E6%B0%B4%E5%B9%B3%E6%89%A9%E5%AE%B9&#x2F;" target="_blank" rel="noopener">http:&#x2F;&#x2F;jimoblivion.github.io&#x2F;2023&#x2F;07&#x2F;19&#x2F;Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%85%AB%EF%BC%89%EF%BC%9AHPA%E6%B0%B4%E5%B9%B3%E6%89%A9%E5%AE%B9&#x2F;</a><br>
+        
+            <strong>版权声明：</strong>本文采用 <a href="https://creativecommons.org/licenses/by-nc-sa/3.0/cn/deed.zh" target="_blank">CC BY-NC-SA 3.0 CN</a> 协议进行许可
+
+        
+    </div>
+
+
+  
+  
+  <div class="nexmoe-post-meta nexmoe-rainbow">
+   
+    
+        <a class="nexmoefont icon-tag-fill -none-link" href="/tags/HPA/" rel="tag">HPA</a> <a class="nexmoefont icon-tag-fill -none-link" href="/tags/k8s/" rel="tag">k8s</a>
+    
+</div>
+  
+  
+    <script async src="/js/copy-codeblock.js?v=1690205319716"></script>
+  
+
+  
+      <div class="nexmoe-post-footer">
+          放弃了就不该后悔，失去了就不该回忆。
+
+      </div>
+  
+</div></div><div class="nexmoe-post-right">    <div class="nexmoe-fixed">
+        <div class="nexmoe-tool">
+
+            
+
+            
+            
+            <button class="mdui-fab catalog" style="overflow:unset;">
+                <i class="nexmoefont icon-i-catalog"></i>
+                <div class="nexmoe-toc">
+                    <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#Pod%E8%87%AA%E5%8A%A8%E6%89%A9%E5%AE%B9"><span class="toc-number">1.</span> <span class="toc-text">Pod自动扩容</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%88%9B%E5%BB%BA%E8%B5%84%E6%BA%90"><span class="toc-number">2.</span> <span class="toc-text">创建资源</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#cpu%E3%80%81%E5%86%85%E5%AD%98%E6%8C%87%E6%A0%87%E7%9A%84%E7%9B%91%E6%8E%A7"><span class="toc-number">3.</span> <span class="toc-text">cpu、内存指标的监控</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B5%8B%E8%AF%95%EF%BC%8C%E8%AE%A9nginx%E7%9A%84%E5%B9%B6%E5%8F%91%E5%8E%8B%E5%8A%9B%E5%8D%87%E9%AB%98"><span class="toc-number">4.</span> <span class="toc-text">测试，让nginx的并发压力升高</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%88%9B%E5%BB%BASVC"><span class="toc-number">4.1.</span> <span class="toc-text">创建SVC</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BD%BF%E7%94%A8%E4%B8%80%E4%B8%AA%E6%AD%BB%E5%BE%AA%E7%8E%AF%E7%9A%84%E8%84%9A%E6%9C%AC%E8%BF%9B%E8%A1%8C%E6%B5%8B%E8%AF%95"><span class="toc-number">4.2.</span> <span class="toc-text">使用一个死循环的脚本进行测试</span></a></li></ol></li></ol>
+                </div>
+            </button>
+            
+
+            
+
+            <a href="#nexmoe-content" class="backtop toc-link" aria-label="Back To Top" title="top"><button class="mdui-fab mdui-ripple"><i class="nexmoefont icon-caret-top"></i></button></a>
+        </div>
+    </div>
+</div></div><div id="nexmoe-footer"><script src="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/animate/fish.js" defer></script><div id="footer-wrap"></div><!--!--></div><div><div id="nexmoe-search-space">
+	<div class="search-container">
+		<div class="search-header">
+			<div class="search-input-container">
+				<input
+					class="search-input"
+					type="text"
+					placeholder="搜索"
+					oninput="sinput();"
+				/>
+			</div>
+			<a class="search-close" onclick="sclose();">×</a>
+		</div>
+		<div class="search-body"></div>
+	</div>
+</div>
+</div><div><script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2058306854838448" crossorigin="anonymous"></script>
+</div></body></html>

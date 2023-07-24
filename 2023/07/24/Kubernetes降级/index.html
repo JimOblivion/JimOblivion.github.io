@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="zh"><head>
+<title>Kubernetes降级 - Oblivion</title>
+<meta charset="UTF-8">
+<meta name="keywords" content="">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+<meta name="referrer" content="no-referrer-when-downgrade">
+
+<link rel="shortcut icon" href="/img/favicon.ico" type="image/x-icon" />
+<meta name="description" content="原因不小心直接yum -y update将k8s和docker的组件进行了升级，这里我们需要进行降级 卸载k8s 查看已经安装的k8s组件   1yum list installed | grep kube     将查到的k8s组件进行卸载   1rpm -e kubelet.x86_64 kubeadm.x86_64  kubectl.x86_64 kubernetes-cni.x86_64">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Kubernetes降级">
+<meta property="og:url" content="http://jimoblivion.github.io/2023/07/24/Kubernetes%E9%99%8D%E7%BA%A7/index.html">
+<meta property="og:site_name" content="Oblivion">
+<meta property="og:description" content="原因不小心直接yum -y update将k8s和docker的组件进行了升级，这里我们需要进行降级 卸载k8s 查看已经安装的k8s组件   1yum list installed | grep kube     将查到的k8s组件进行卸载   1rpm -e kubelet.x86_64 kubeadm.x86_64  kubectl.x86_64 kubernetes-cni.x86_64">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/24/Kubernetes%E9%99%8D%E7%BA%A7/1.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/24/Kubernetes%E9%99%8D%E7%BA%A7/2.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/24/Kubernetes%E9%99%8D%E7%BA%A7/3.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/24/Kubernetes%E9%99%8D%E7%BA%A7/4.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/24/Kubernetes%E9%99%8D%E7%BA%A7/5.png">
+<meta property="article:published_time" content="2023-07-24T08:18:29.000Z">
+<meta property="article:modified_time" content="2023-07-24T08:38:31.881Z">
+<meta property="article:author" content="Jim Oblivion">
+<meta property="article:tag" content="k8s">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://jimoblivion.github.io/2023/07/24/Kubernetes%E9%99%8D%E7%BA%A7/1.png">
+<!-- <link rel="stylesheet" href="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/fancybox/fancybox.css">
+<link rel="stylesheet" href="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/mdui_043tiny/mdui.css">
+<link rel="stylesheet" href="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/animate/htmleaf-demo.css"> -->
+
+<!-- <link href='http://fonts.font.im/css?family=Exo+2:400,500italic' rel='stylesheet' type='text/css'> -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- <link href="https://fonts.googleapis.com/css?family=Noto+Sans+SC:100,300,400,500,700,900" rel="stylesheet"> -->
+<link href="https://fonts.googleapis.com/css2?family=Fredericka+the+Great&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="/lib/fancybox/fancybox.css">
+<link rel="stylesheet" href="/lib/mdui_043tiny/mdui.css">
+<link rel="stylesheet" href="/lib/animate/htmleaf-demo.css">
+
+
+<link rel="stylesheet" href="/lib/iconfont/iconfont.css?v=1690205319778">
+
+<link rel="stylesheet" href="/css/style.css?v=1690205319778">
+
+
+
+
+    
+        <link rel="stylesheet" href="/custom.css?v=1690205319778">
+    
+
+<!-- { src:'lib/animate/jquery.min.js' , async: true},  -->
+<!-- { src:'lib/animate/anime.min.js' , async: true}, -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/2.2.0/anime.min.js"></script>
+<!-- <script src="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/mdui_043tiny/mdui.js"></script>
+<script src="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/fancybox/fancybox.umd.js"></script>
+<script src="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/lax.min.js"></script> -->
+
+<script src="/lib/mdui_043tiny/mdui.js" async></script>
+<script src="/lib/fancybox/fancybox.umd.js" async></script>
+<script src="/lib/lax.min.js" async></script>
+
+
+<script async src="/js/app.js?v=1690205319778"></script>
+
+ 
+
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-4D4ZJ9G024"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag("js", new Date());
+
+  gtag("config", "G-4D4ZJ9G024");
+</script>
+
+<meta name="generator" content="Hexo 6.3.0"></head><body class="nexmoe mdui-drawer-body-left"><div id="nexmoe-background"><div class="nexmoe-bg" style="background-image: url(/img/bg.jpg)"></div><div class="mdui-appbar mdui-shadow-0"><div class="mdui-toolbar"><a class="mdui-btn mdui-btn-icon mdui-ripple" mdui-drawer="{target: &#039;#drawer&#039;, swipe: true}" title="menu"><i class="mdui-icon nexmoefont icon-menu"></i></a><div class="mdui-toolbar-spacer"></div><a class="mdui-btn mdui-btn-icon" href="/" title="Jim Oblivion"><img src="/img/logo.jpg" alt="Jim Oblivion"></a></div></div></div><div id="nexmoe-header"><div class="nexmoe-drawer mdui-drawer" id="drawer">
+    <div class="nexmoe-avatar mdui-ripple">
+        <a href="/" title="Jim Oblivion">
+            <img src="/img/logo.jpg" alt="Jim Oblivion" alt="Jim Oblivion">
+        </a>
+    </div>
+    <div class="nexmoe-count">
+        <div><span>文章</span>24</div>
+        <div><span>标签</span>22</div>
+        <div><span>分类</span>2</div>
+    </div>
+    <div class="nexmoe-list mdui-list" mdui-collapse="{accordion: true}">
+        
+        <a class="nexmoe-list-item mdui-list-item mdui-ripple false" href="/" title="回到首页">
+            <i class="mdui-list-item-icon nexmoefont icon-home"></i>
+            <div class="mdui-list-item-content">
+                回到首页
+            </div>
+        </a>
+        
+        <a class="nexmoe-list-item mdui-list-item mdui-ripple false" href="/archive.html" title="文章归档">
+            <i class="mdui-list-item-icon nexmoefont icon-container"></i>
+            <div class="mdui-list-item-content">
+                文章归档
+            </div>
+        </a>
+        
+        <a class="nexmoe-list-item mdui-list-item mdui-ripple false" href="/2023/07/12/%E8%B5%9E%E5%8A%A9%E6%88%91" title="给我赞助">
+            <i class="mdui-list-item-icon nexmoefont icon-coffee"></i>
+            <div class="mdui-list-item-content">
+                给我赞助
+            </div>
+        </a>
+        
+        <a class="nexmoe-list-item mdui-list-item mdui-ripple false" href="/about" title="关于博主">
+            <i class="mdui-list-item-icon nexmoefont icon-info-circle"></i>
+            <div class="mdui-list-item-content">
+                关于博主
+            </div>
+        </a>
+        
+    </div>
+    
+    
+        
+        
+        
+        
+  <div class="nexmoe-widget-wrap">
+    <h3 class="nexmoe-widget-title">文章分类</h3>
+    <div class="nexmoe-widget">
+
+      <ul class="category-list">
+
+        
+
+
+        
+
+        
+
+        <li class="category-list-item">
+          <a class="category-list-link" href="/categories/Kubernetes安装/">Kubernetes安装</a>
+          <span class="category-list-count">2</span>
+        </li>
+
+        
+
+        <li class="category-list-item">
+          <a class="category-list-link" href="/categories/Kubernetes实战/">Kubernetes实战</a>
+          <span class="category-list-count">21</span>
+        </li>
+
+        
+      </ul>
+
+    </div>
+  </div>
+
+
+    
+        
+        
+  <div class="nexmoe-widget-wrap">
+    <div id="randomtagcloud" class="nexmoe-widget tagcloud nexmoe-rainbow">
+      <a href="/tags/ConfigMap/" style="font-size: 10px;">ConfigMap</a> <a href="/tags/CronJob/" style="font-size: 10px;">CronJob</a> <a href="/tags/DaemonSet/" style="font-size: 10px;">DaemonSet</a> <a href="/tags/EmptyDir/" style="font-size: 10px;">EmptyDir</a> <a href="/tags/HPA/" style="font-size: 10px;">HPA</a> <a href="/tags/HostPath/" style="font-size: 10px;">HostPath</a> <a href="/tags/Ingress/" style="font-size: 10px;">Ingress</a> <a href="/tags/Prometheus/" style="font-size: 10px;">Prometheus</a> <a href="/tags/RBAC/" style="font-size: 10px;">RBAC</a> <a href="/tags/Service/" style="font-size: 10px;">Service</a> <a href="/tags/StatefulSet/" style="font-size: 15px;">StatefulSet</a> <a href="/tags/StorageClass/" style="font-size: 10px;">StorageClass</a> <a href="/tags/deployment/" style="font-size: 10px;">deployment</a> <a href="/tags/docker/" style="font-size: 10px;">docker</a> <a href="/tags/helm/" style="font-size: 10px;">helm</a> <a href="/tags/initC/" style="font-size: 10px;">initC</a> <a href="/tags/k8s/" style="font-size: 20px;">k8s</a> <a href="/tags/label/" style="font-size: 10px;">label</a> <a href="/tags/nfs/" style="font-size: 10px;">nfs</a> <a href="/tags/pod/" style="font-size: 15px;">pod</a> <a href="/tags/pv/" style="font-size: 10px;">pv</a> <a href="/tags/pvc/" style="font-size: 10px;">pvc</a>
+    </div>
+    
+      <script>
+        var maxTagcloud = parseInt(17);
+        var tags_length = parseInt(22);
+        var tags_arr = [];
+        for(var i = 0; i < tags_length; i++){
+          tags_arr.push(i);
+        }
+        tags_arr.sort(function (l, r) {
+          return Math.random() > 0.5 ? -1 : 1;
+        });
+        tags_arr = tags_arr.slice(0, maxTagcloud < tags_length ? tags_length - maxTagcloud : 0);
+        for(var tag_i = 0; tag_i < tags_arr.length; tag_i++){
+          document.getElementById("randomtagcloud").children[tags_arr[tag_i]].style.display = 'none';
+        }
+      </script>
+    
+  </div>
+
+    
+        
+        
+        
+        
+        
+  <div class="nexmoe-widget-wrap">
+    <h3 class="nexmoe-widget-title">访问量统计</h3>
+    <div class="nexmoe-widget">
+      <!-- <script async src="/js/busuanzi.pure.mini.js"></script> -->
+      <script async src="https://cdn.bootcdn.net/ajax/libs/busuanzi/2.3.0/bsz.pure.mini.js"></script>
+      <ul>
+        <li><span class="busuanzi" id="busuanzi_container_site_pv">本站总访问量:<span id="busuanzi_value_site_pv"></span>次</span></li>
+        <li><span class="busuanzi" id="busuanzi_container_site_uv">本站访客数:<span id="busuanzi_value_site_uv"></span>人</span></li>
+      </ul>
+      
+    </div>
+  </div>
+
+    
+        
+   
+    <div class="nexmoe-copyright">
+        &copy; 2023 Jim Oblivion
+        Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>
+        & <a href="https://github.com/theme-nexmoe/hexo-theme-nexmoe" target="_blank">Nexmoe</a>
+        <br><a target="_blank" href="https://beian.miit.gov.cn/">鄂ICP备2020018486号</a>
+
+    </div>
+</div><!-- .nexmoe-drawer --></div><div id="nexmoe-content"><script src="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/animate/firework.js" defer></script><canvas class="fireworks" style="position: fixed;left: 0;top: 0;z-index: 10000; pointer-events: none;"></canvas><div class="nexmoe-primary"><div class="nexmoe-post">
+  <article>
+    
+        <div class="nexmoe-post-cover"> 
+            <img src="/img/bg.jpg" alt="Kubernetes降级" loading="lazy">
+            <h1>Kubernetes降级</h1>
+        </div>
+    
+    
+    <div class="nexmoe-post-meta">
+    <div class="nexmoe-rainbow">
+        <a class="nexmoefont icon-calendar-fill">2023年07月24日</a>
+        
+            <a class="nexmoefont icon-appstore-fill -link" href="/categories/Kubernetes%E5%AE%89%E8%A3%85/">Kubernetes安装</a>
+        
+        
+    </div>
+    
+    
+    
+    
+    
+</div>
+
+    <h2 id="原因"><a href="#原因" class="headerlink" title="原因"></a>原因</h2><p>不小心直接<strong>yum -y update</strong>将k8s和docker的组件进行了升级，这里我们需要进行降级</p>
+<h2 id="卸载k8s"><a href="#卸载k8s" class="headerlink" title="卸载k8s"></a>卸载k8s</h2><ul>
+<li><p>查看已经安装的k8s组件</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">yum list installed | grep kube</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/24/Kubernetes%E9%99%8D%E7%BA%A7/1.png" class="" width="1"></li>
+<li><p>将查到的k8s组件进行卸载</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">rpm -e kubelet.x86_64 kubeadm.x86_64  kubectl.x86_64 kubernetes-cni.x86_64 cri-tools.x86_64</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h2 id="卸载docker"><a href="#卸载docker" class="headerlink" title="卸载docker"></a>卸载docker</h2><ul>
+<li><p>查看已经安装的docker组件</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">yum list installed | grep docker</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/24/Kubernetes%E9%99%8D%E7%BA%A7/2.png" class="" width="1"></li>
+<li><p>将查到的docker组件进行卸载</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">rpm -e docker-buildx-plugin.x86_64 containerd.io.x86_64 docker-ce.x86_64  docker-ce-cli.x86_64 docker-ce-rootless-extras.x86_64  docker-compose-plugin.x86_64</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h2 id="安装docker"><a href="#安装docker" class="headerlink" title="安装docker"></a>安装docker</h2><ul>
+<li><p>安装脚本</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">yum install -y docker-ce-20.10.0-3.el7</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>设置自启动</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">systemctl start docker</span><br><span class="line">systemctl <span class="built_in">enable</span> docker</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h2 id="安装k8s"><a href="#安装k8s" class="headerlink" title="安装k8s"></a>安装k8s</h2><ul>
+<li><p>安装脚本</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">yum install -y kubelet-1.23.0 kubeadm-1.23.0 kubectl-1.23.0</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>解决重启虚拟机后报错的问题</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">vi /usr/lib/systemd/system/kubelet.service.d/10-kubeadm.conf</span><br></pre></td></tr></table></figure>
+
+  <figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">[<span class="string">Service</span>]</span><br><span class="line"><span class="string">CPUAccounting=true</span>              <span class="comment">## 添加 CPUAccounting=true 选项，开启 systemd CPU 统计功能</span></span><br><span class="line"><span class="string">MemoryAccounting=true</span>           <span class="comment">## 添加 MemoryAccounting=true 选项，开启 systemd Memory 统计功能</span></span><br><span class="line"><span class="string">Environment=&quot;KUBELET_KUBECONFIG_ARGS=--bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf</span> <span class="string">--kubeconfig=/etc/kubernetes/kubelet.conf&quot;</span></span><br></pre></td></tr></table></figure>
+
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">systemctl daemon-reload</span><br><span class="line">systemctl restart kubelet</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h2 id="其他问题处理"><a href="#其他问题处理" class="headerlink" title="其他问题处理"></a>其他问题处理</h2><ul>
+<li><p>问题描述<br>  执行<code>kubectl -n monitoring  top pod</code>报错<br>  <font color=dark> Metrics not available for pod monitoring&#x2F;alertmanager-main-0, age: 2h51m31.584335184s</font></p>
+  <img src="/2023/07/24/Kubernetes%E9%99%8D%E7%BA%A7/3.png" class="" width="1">
+</li>
+<li><p>重新安装组件</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">wget https://github.com/kubernetes-sigs/metrics-server/releases/download/v0.6.2/components.yaml -O metrics-server-components.yaml</span><br></pre></td></tr></table></figure>
+
+<p>  编辑文件，找到containers进行修改</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">vim metrics-server-components.yaml</span><br></pre></td></tr></table></figure>
+
+  <figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">containers:</span></span><br><span class="line">  <span class="bullet">-</span> <span class="attr">args:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">--cert-dir=/tmp</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">--secure-port=4443</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">--kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">--kubelet-use-node-status-port</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">--metric-resolution=15s</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">--kubelet-insecure-tls</span> <span class="comment"># 默认不使用https</span></span><br><span class="line">    <span class="attr">image:</span> <span class="string">registry.cn-hangzhou.aliyuncs.com/google_containers/metrics-server:v0.6.2</span> <span class="comment"># 使用国内镜像地址</span></span><br></pre></td></tr></table></figure>
+</li>
+<li><p>重新安装工具</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl apply -f metrics-server-components.yaml</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>查看工具状态</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl get po --all-namespaces | grep metrics</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/24/Kubernetes%E9%99%8D%E7%BA%A7/4.png" class="" width="1"></li>
+<li><p>恢复正常</p>
+  <img src="/2023/07/24/Kubernetes%E9%99%8D%E7%BA%A7/5.png" class="" width="1"></li>
+</ul>
+
+    <p class="articleSlot"><span class="splitLine"></span><img class="give" src="/img/icons8-coin-96.png" loading="lazy"><img class="buyMeCoffee" src="/img/buymecoffe.jpg" loading="lazy"></p>
+
+  </article>
+
+  
+      
+    <div class="nexmoe-post-copyright">
+        <strong>本文作者：</strong>Jim Oblivion<br>
+        <strong>本文链接：</strong><a href="http://jimoblivion.github.io/2023/07/24/Kubernetes%E9%99%8D%E7%BA%A7/" title="http:&#x2F;&#x2F;jimoblivion.github.io&#x2F;2023&#x2F;07&#x2F;24&#x2F;Kubernetes%E9%99%8D%E7%BA%A7&#x2F;" target="_blank" rel="noopener">http:&#x2F;&#x2F;jimoblivion.github.io&#x2F;2023&#x2F;07&#x2F;24&#x2F;Kubernetes%E9%99%8D%E7%BA%A7&#x2F;</a><br>
+        
+            <strong>版权声明：</strong>本文采用 <a href="https://creativecommons.org/licenses/by-nc-sa/3.0/cn/deed.zh" target="_blank">CC BY-NC-SA 3.0 CN</a> 协议进行许可
+
+        
+    </div>
+
+
+  
+  
+  <div class="nexmoe-post-meta nexmoe-rainbow">
+   
+    
+        <a class="nexmoefont icon-tag-fill -none-link" href="/tags/k8s/" rel="tag">k8s</a>
+    
+</div>
+  
+  
+    <script async src="/js/copy-codeblock.js?v=1690205319708"></script>
+  
+
+  
+      <div class="nexmoe-post-footer">
+          放弃了就不该后悔，失去了就不该回忆。
+
+      </div>
+  
+</div></div><div class="nexmoe-post-right">    <div class="nexmoe-fixed">
+        <div class="nexmoe-tool">
+
+            
+
+            
+            
+            <button class="mdui-fab catalog" style="overflow:unset;">
+                <i class="nexmoefont icon-i-catalog"></i>
+                <div class="nexmoe-toc">
+                    <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8E%9F%E5%9B%A0"><span class="toc-number">1.</span> <span class="toc-text">原因</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8D%B8%E8%BD%BDk8s"><span class="toc-number">2.</span> <span class="toc-text">卸载k8s</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8D%B8%E8%BD%BDdocker"><span class="toc-number">3.</span> <span class="toc-text">卸载docker</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%89%E8%A3%85docker"><span class="toc-number">4.</span> <span class="toc-text">安装docker</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%AE%89%E8%A3%85k8s"><span class="toc-number">5.</span> <span class="toc-text">安装k8s</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%B6%E4%BB%96%E9%97%AE%E9%A2%98%E5%A4%84%E7%90%86"><span class="toc-number">6.</span> <span class="toc-text">其他问题处理</span></a></li></ol>
+                </div>
+            </button>
+            
+
+            
+
+            <a href="#nexmoe-content" class="backtop toc-link" aria-label="Back To Top" title="top"><button class="mdui-fab mdui-ripple"><i class="nexmoefont icon-caret-top"></i></button></a>
+        </div>
+    </div>
+</div></div><div id="nexmoe-footer"><script src="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/animate/fish.js" defer></script><div id="footer-wrap"></div><!--!--></div><div><div id="nexmoe-search-space">
+	<div class="search-container">
+		<div class="search-header">
+			<div class="search-input-container">
+				<input
+					class="search-input"
+					type="text"
+					placeholder="搜索"
+					oninput="sinput();"
+				/>
+			</div>
+			<a class="search-close" onclick="sclose();">×</a>
+		</div>
+		<div class="search-body"></div>
+	</div>
+</div>
+</div><div><script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2058306854838448" crossorigin="anonymous"></script>
+</div></body></html>

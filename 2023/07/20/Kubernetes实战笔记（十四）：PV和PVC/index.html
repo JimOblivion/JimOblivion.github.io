@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="zh"><head>
+<title>Kubernetes实战笔记（十四）：PV和PVC - Oblivion</title>
+<meta charset="UTF-8">
+<meta name="keywords" content="">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
+<meta name="referrer" content="no-referrer-when-downgrade">
+
+<link rel="shortcut icon" href="/img/favicon.ico" type="image/x-icon" />
+<meta name="description" content="原因 由于不同服务可能使用不同的持久化实现方案，会导致混乱，没有统一的标准。  持久卷（Persistent Volume）是集群中的一块存储，可以由管理员提前制备，或者使用Storage Class来动态制备。PV持久卷和普通的Volume一样，也是使用卷插件来实现的，只是他们拥有独立于任何使用PV的Pod的生命周期。 持久卷申领（Persistent Volume Claim）表达用户对存储的">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Kubernetes实战笔记（十四）：PV和PVC">
+<meta property="og:url" content="http://jimoblivion.github.io/2023/07/20/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%9B%9B%EF%BC%89%EF%BC%9APV%E5%92%8CPVC/index.html">
+<meta property="og:site_name" content="Oblivion">
+<meta property="og:description" content="原因 由于不同服务可能使用不同的持久化实现方案，会导致混乱，没有统一的标准。  持久卷（Persistent Volume）是集群中的一块存储，可以由管理员提前制备，或者使用Storage Class来动态制备。PV持久卷和普通的Volume一样，也是使用卷插件来实现的，只是他们拥有独立于任何使用PV的Pod的生命周期。 持久卷申领（Persistent Volume Claim）表达用户对存储的">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/20/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%9B%9B%EF%BC%89%EF%BC%9APV%E5%92%8CPVC/1.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/20/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%9B%9B%EF%BC%89%EF%BC%9APV%E5%92%8CPVC/2.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/20/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%9B%9B%EF%BC%89%EF%BC%9APV%E5%92%8CPVC/3.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/20/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%9B%9B%EF%BC%89%EF%BC%9APV%E5%92%8CPVC/4.png">
+<meta property="og:image" content="http://jimoblivion.github.io/2023/07/20/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%9B%9B%EF%BC%89%EF%BC%9APV%E5%92%8CPVC/5.png">
+<meta property="article:published_time" content="2023-07-20T12:28:39.000Z">
+<meta property="article:modified_time" content="2023-07-21T03:11:21.133Z">
+<meta property="article:author" content="Jim Oblivion">
+<meta property="article:tag" content="k8s">
+<meta property="article:tag" content="pv">
+<meta property="article:tag" content="pvc">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://jimoblivion.github.io/2023/07/20/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%9B%9B%EF%BC%89%EF%BC%9APV%E5%92%8CPVC/1.png">
+<!-- <link rel="stylesheet" href="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/fancybox/fancybox.css">
+<link rel="stylesheet" href="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/mdui_043tiny/mdui.css">
+<link rel="stylesheet" href="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/animate/htmleaf-demo.css"> -->
+
+<!-- <link href='http://fonts.font.im/css?family=Exo+2:400,500italic' rel='stylesheet' type='text/css'> -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- <link href="https://fonts.googleapis.com/css?family=Noto+Sans+SC:100,300,400,500,700,900" rel="stylesheet"> -->
+<link href="https://fonts.googleapis.com/css2?family=Fredericka+the+Great&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="/lib/fancybox/fancybox.css">
+<link rel="stylesheet" href="/lib/mdui_043tiny/mdui.css">
+<link rel="stylesheet" href="/lib/animate/htmleaf-demo.css">
+
+
+<link rel="stylesheet" href="/lib/iconfont/iconfont.css?v=1690205319828">
+
+<link rel="stylesheet" href="/css/style.css?v=1690205319828">
+
+
+
+
+    
+        <link rel="stylesheet" href="/custom.css?v=1690205319828">
+    
+
+<!-- { src:'lib/animate/jquery.min.js' , async: true},  -->
+<!-- { src:'lib/animate/anime.min.js' , async: true}, -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/2.2.0/anime.min.js"></script>
+<!-- <script src="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/mdui_043tiny/mdui.js"></script>
+<script src="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/fancybox/fancybox.umd.js"></script>
+<script src="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/lax.min.js"></script> -->
+
+<script src="/lib/mdui_043tiny/mdui.js" async></script>
+<script src="/lib/fancybox/fancybox.umd.js" async></script>
+<script src="/lib/lax.min.js" async></script>
+
+
+<script async src="/js/app.js?v=1690205319828"></script>
+
+ 
+
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-4D4ZJ9G024"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag("js", new Date());
+
+  gtag("config", "G-4D4ZJ9G024");
+</script>
+
+<meta name="generator" content="Hexo 6.3.0"></head><body class="nexmoe mdui-drawer-body-left"><div id="nexmoe-background"><div class="nexmoe-bg" style="background-image: url(/img/bg.jpg)"></div><div class="mdui-appbar mdui-shadow-0"><div class="mdui-toolbar"><a class="mdui-btn mdui-btn-icon mdui-ripple" mdui-drawer="{target: &#039;#drawer&#039;, swipe: true}" title="menu"><i class="mdui-icon nexmoefont icon-menu"></i></a><div class="mdui-toolbar-spacer"></div><a class="mdui-btn mdui-btn-icon" href="/" title="Jim Oblivion"><img src="/img/logo.jpg" alt="Jim Oblivion"></a></div></div></div><div id="nexmoe-header"><div class="nexmoe-drawer mdui-drawer" id="drawer">
+    <div class="nexmoe-avatar mdui-ripple">
+        <a href="/" title="Jim Oblivion">
+            <img src="/img/logo.jpg" alt="Jim Oblivion" alt="Jim Oblivion">
+        </a>
+    </div>
+    <div class="nexmoe-count">
+        <div><span>文章</span>24</div>
+        <div><span>标签</span>22</div>
+        <div><span>分类</span>2</div>
+    </div>
+    <div class="nexmoe-list mdui-list" mdui-collapse="{accordion: true}">
+        
+        <a class="nexmoe-list-item mdui-list-item mdui-ripple false" href="/" title="回到首页">
+            <i class="mdui-list-item-icon nexmoefont icon-home"></i>
+            <div class="mdui-list-item-content">
+                回到首页
+            </div>
+        </a>
+        
+        <a class="nexmoe-list-item mdui-list-item mdui-ripple false" href="/archive.html" title="文章归档">
+            <i class="mdui-list-item-icon nexmoefont icon-container"></i>
+            <div class="mdui-list-item-content">
+                文章归档
+            </div>
+        </a>
+        
+        <a class="nexmoe-list-item mdui-list-item mdui-ripple false" href="/2023/07/12/%E8%B5%9E%E5%8A%A9%E6%88%91" title="给我赞助">
+            <i class="mdui-list-item-icon nexmoefont icon-coffee"></i>
+            <div class="mdui-list-item-content">
+                给我赞助
+            </div>
+        </a>
+        
+        <a class="nexmoe-list-item mdui-list-item mdui-ripple false" href="/about" title="关于博主">
+            <i class="mdui-list-item-icon nexmoefont icon-info-circle"></i>
+            <div class="mdui-list-item-content">
+                关于博主
+            </div>
+        </a>
+        
+    </div>
+    
+    
+        
+        
+        
+        
+  <div class="nexmoe-widget-wrap">
+    <h3 class="nexmoe-widget-title">文章分类</h3>
+    <div class="nexmoe-widget">
+
+      <ul class="category-list">
+
+        
+
+
+        
+
+        
+
+        <li class="category-list-item">
+          <a class="category-list-link" href="/categories/Kubernetes安装/">Kubernetes安装</a>
+          <span class="category-list-count">2</span>
+        </li>
+
+        
+
+        <li class="category-list-item">
+          <a class="category-list-link" href="/categories/Kubernetes实战/">Kubernetes实战</a>
+          <span class="category-list-count">21</span>
+        </li>
+
+        
+      </ul>
+
+    </div>
+  </div>
+
+
+    
+        
+        
+  <div class="nexmoe-widget-wrap">
+    <div id="randomtagcloud" class="nexmoe-widget tagcloud nexmoe-rainbow">
+      <a href="/tags/ConfigMap/" style="font-size: 10px;">ConfigMap</a> <a href="/tags/CronJob/" style="font-size: 10px;">CronJob</a> <a href="/tags/DaemonSet/" style="font-size: 10px;">DaemonSet</a> <a href="/tags/EmptyDir/" style="font-size: 10px;">EmptyDir</a> <a href="/tags/HPA/" style="font-size: 10px;">HPA</a> <a href="/tags/HostPath/" style="font-size: 10px;">HostPath</a> <a href="/tags/Ingress/" style="font-size: 10px;">Ingress</a> <a href="/tags/Prometheus/" style="font-size: 10px;">Prometheus</a> <a href="/tags/RBAC/" style="font-size: 10px;">RBAC</a> <a href="/tags/Service/" style="font-size: 10px;">Service</a> <a href="/tags/StatefulSet/" style="font-size: 15px;">StatefulSet</a> <a href="/tags/StorageClass/" style="font-size: 10px;">StorageClass</a> <a href="/tags/deployment/" style="font-size: 10px;">deployment</a> <a href="/tags/docker/" style="font-size: 10px;">docker</a> <a href="/tags/helm/" style="font-size: 10px;">helm</a> <a href="/tags/initC/" style="font-size: 10px;">initC</a> <a href="/tags/k8s/" style="font-size: 20px;">k8s</a> <a href="/tags/label/" style="font-size: 10px;">label</a> <a href="/tags/nfs/" style="font-size: 10px;">nfs</a> <a href="/tags/pod/" style="font-size: 15px;">pod</a> <a href="/tags/pv/" style="font-size: 10px;">pv</a> <a href="/tags/pvc/" style="font-size: 10px;">pvc</a>
+    </div>
+    
+      <script>
+        var maxTagcloud = parseInt(17);
+        var tags_length = parseInt(22);
+        var tags_arr = [];
+        for(var i = 0; i < tags_length; i++){
+          tags_arr.push(i);
+        }
+        tags_arr.sort(function (l, r) {
+          return Math.random() > 0.5 ? -1 : 1;
+        });
+        tags_arr = tags_arr.slice(0, maxTagcloud < tags_length ? tags_length - maxTagcloud : 0);
+        for(var tag_i = 0; tag_i < tags_arr.length; tag_i++){
+          document.getElementById("randomtagcloud").children[tags_arr[tag_i]].style.display = 'none';
+        }
+      </script>
+    
+  </div>
+
+    
+        
+        
+        
+        
+        
+  <div class="nexmoe-widget-wrap">
+    <h3 class="nexmoe-widget-title">访问量统计</h3>
+    <div class="nexmoe-widget">
+      <!-- <script async src="/js/busuanzi.pure.mini.js"></script> -->
+      <script async src="https://cdn.bootcdn.net/ajax/libs/busuanzi/2.3.0/bsz.pure.mini.js"></script>
+      <ul>
+        <li><span class="busuanzi" id="busuanzi_container_site_pv">本站总访问量:<span id="busuanzi_value_site_pv"></span>次</span></li>
+        <li><span class="busuanzi" id="busuanzi_container_site_uv">本站访客数:<span id="busuanzi_value_site_uv"></span>人</span></li>
+      </ul>
+      
+    </div>
+  </div>
+
+    
+        
+   
+    <div class="nexmoe-copyright">
+        &copy; 2023 Jim Oblivion
+        Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>
+        & <a href="https://github.com/theme-nexmoe/hexo-theme-nexmoe" target="_blank">Nexmoe</a>
+        <br><a target="_blank" href="https://beian.miit.gov.cn/">鄂ICP备2020018486号</a>
+
+    </div>
+</div><!-- .nexmoe-drawer --></div><div id="nexmoe-content"><script src="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/animate/firework.js" defer></script><canvas class="fireworks" style="position: fixed;left: 0;top: 0;z-index: 10000; pointer-events: none;"></canvas><div class="nexmoe-primary"><div class="nexmoe-post">
+  <article>
+    
+        <div class="nexmoe-post-cover absolute" style="padding-top: NaN%;"> 
+            <img src="/2023/07/12/Docker和Kubernetes安装/v2-7f33f488e57e150d7788f3ef9e316035_720w.jpg" alt="Kubernetes实战笔记（十四）：PV和PVC" loading="lazy">
+            <h1>Kubernetes实战笔记（十四）：PV和PVC</h1>
+        </div>
+    
+    
+    <div class="nexmoe-post-meta">
+    <div class="nexmoe-rainbow">
+        <a class="nexmoefont icon-calendar-fill">2023年07月20日</a>
+        
+            <a class="nexmoefont icon-appstore-fill -link" href="/categories/Kubernetes%E5%AE%9E%E6%88%98/">Kubernetes实战</a>
+        
+        
+    </div>
+    
+    
+    
+    
+    
+</div>
+
+    <h2 id="原因"><a href="#原因" class="headerlink" title="原因"></a>原因</h2><blockquote>
+<p>由于不同服务可能使用不同的持久化实现方案，会导致混乱，没有统一的标准。</p>
+</blockquote>
+<p><strong>持久卷</strong>（<strong>Persistent Volume</strong>）是集群中的一块存储，可以由管理员提前制备，或者使用Storage Class来动态制备。PV持久卷和普通的Volume一样，也是使用卷插件来实现的，只是他们拥有独立于任何使用PV的Pod的生命周期。</p>
+<p><strong>持久卷申领</strong>（<strong>Persistent Volume Claim</strong>）表达用户对存储的请求。与Pod类似，Pod会消耗节点资源，但是PVC申领会消耗PV资源。 PV卷能够以ReadWriteOnce、ReadOnlyMany或ReadWriteMang模式之一来挂载。</p>
+<h2 id="构建"><a href="#构建" class="headerlink" title="构建"></a>构建</h2><h3 id="静态构建"><a href="#静态构建" class="headerlink" title="静态构建"></a>静态构建</h3><p>集群管理员创建若干PV卷，这些卷对象带有真实存储的细节信息，并且对集群用户可见。PV卷对象存在于Kubernetes API中，可供消费者使用</p>
+<h3 id="动态构建"><a href="#动态构建" class="headerlink" title="动态构建"></a>动态构建</h3><p>如果进群中已经有的PV无法满足PVC的需求，那么集群会根据PVC自动构建一个PV，该操作是通过StroageClass实现的。<br><font color=Coral>想要实现这个操作，前提是PVC必须设置StorageClass，否者会无法动态构建该PV，可以通过DefaultStorageClass来实现PV的构建。</font></p>
+<h2 id="绑定"><a href="#绑定" class="headerlink" title="绑定"></a>绑定</h2><p><code>当用户创建了一个PVC对象后，主节点会监测新的PVC对象，并且寻找与之匹配的PV卷，找到PV卷后将二者绑定在一起。</code><br><font color=Coral>如果找不到对应的PV，则需要看PVC是否设置StorageClass来决定是否动态创建PV，若没有配置，PVC就会一直处于未绑定的状态，直到有与之匹配的PV后才会申领绑定关系。</font></p>
+<h2 id="使用"><a href="#使用" class="headerlink" title="使用"></a>使用</h2><p><code>Pod将PVC当作存储卷来使用，集群会通过PVC找到绑定的PV， 并为Pod挂载该卷。</code><br><font color=Coral>Pod一旦使用PVC绑定PV后，为了保护数据，避免数丢失问题，PV对象会收到保护，在系统中无法被删除。</font></p>
+<h2 id="回收策略"><a href="#回收策略" class="headerlink" title="回收策略"></a>回收策略</h2><p>当用户不再使用其存储卷时，他们可以从API中将PVC对象删除，从而允许该资源被回收再利用。PV对象的回收策略告诉集群，当其被从申领中释放时如何处理该数据卷。目前，数据卷可以被**Retained(保留)、Recycled(回收)或Deleted(删除)**。</p>
+<h3 id="保留"><a href="#保留" class="headerlink" title="保留"></a>保留</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">回收策略Retain使得用户可以手动回收资源。当PVC对象别删除时，PV卷仍然存在，对应的数据卷被视为“已释放”。 </span><br><span class="line">由于卷上仍然存着前一申领人的数据，该卷还不能用于其他申领。管理员可以通过下面步骤来手动回收该卷。</span><br><span class="line">a.  删除PV对象。与之相关的、位于外部基础设施的存储资产在PV删除之后仍然存在。</span><br><span class="line">b.  根据情况，手动清除所有关联的存储资产上的数据</span><br><span class="line">c.  手动删除所关联的存储资产</span><br></pre></td></tr></table></figure>
+
+<h3 id="删除"><a href="#删除" class="headerlink" title="删除"></a>删除</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">对于支持Delete回收策略的卷插件，删除动作会将PV对象从Kubernetes中移除，同时也会从外部基础设施中移除所更换连的存储资产。</span><br><span class="line">动态制备的卷会继承其StorageClass中设置的回收策略，该策略默认为Delete。</span><br><span class="line">管理员需要根据用户的期望来配置StorageClass： 否则PV卷被创建之后必须要被编辑或者修补。</span><br></pre></td></tr></table></figure>
+
+<h3 id="回收"><a href="#回收" class="headerlink" title="回收"></a>回收</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">回收策略Recycle已经被废弃。取而代之的建议方案时使用动态制备。</span><br><span class="line">如果下层的卷插件支持，回收策略Recycle会在卷上执行一些基本的擦除（rm -rf /thevolume/*）操作，之后允许该卷用于新的PVC申领。</span><br></pre></td></tr></table></figure>
+
+<h2 id="PV的状态"><a href="#PV的状态" class="headerlink" title="PV的状态"></a>PV的状态</h2><p><strong>Available</strong>: 空闲，未被绑定<br><strong>Bound</strong>: 已经被PVC绑定<br><strong>Released</strong>: PVC被删除，资源已回收，但是PV未被重新使用<br><strong>Failed</strong>: 自动回收失败</p>
+<ul>
+<li><p>创建pv</p>
+  <figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">PersistentVolume</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line"><span class="attr">name:</span> <span class="string">pv-001</span></span><br><span class="line"><span class="attr">namespace:</span> <span class="string">&quot;zy-test&quot;</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line"><span class="attr">capacity:</span></span><br><span class="line">    <span class="attr">storage:</span> <span class="string">2Gi</span></span><br><span class="line"><span class="attr">volumeMode:</span> <span class="string">Filesystem</span></span><br><span class="line"><span class="attr">accessModes:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">ReadWriteMany</span></span><br><span class="line"><span class="attr">persistentVolumeReclaimPolicy:</span> <span class="string">Retain</span></span><br><span class="line"><span class="attr">storageClassName:</span> <span class="string">slow</span></span><br><span class="line"><span class="attr">mountOptions:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">hard</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">nfsvers=4.2</span></span><br><span class="line"><span class="attr">nfs:</span></span><br><span class="line">    <span class="attr">path:</span> <span class="string">/data/nfs/rw/test-pv</span></span><br><span class="line">    <span class="attr">server:</span> <span class="number">192.168</span><span class="number">.1</span><span class="number">.21</span></span><br></pre></td></tr></table></figure>
+</li>
+<li><p>创建共享目录</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">mkdir</span> -p /data/nfs/rw/test-pv</span><br></pre></td></tr></table></figure>
+
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl create -f nfs-pv.yml</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>查看pv已经被构建成功</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test get pv</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/20/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%9B%9B%EF%BC%89%EF%BC%9APV%E5%92%8CPVC/1.png" class="" width="1">
+</li>
+<li><p>构建PVC</p>
+  <figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">PersistentVolumeClaim</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line"><span class="attr">name:</span> <span class="string">nfs-pvc</span></span><br><span class="line"><span class="attr">namespace:</span> <span class="string">&quot;zy-test&quot;</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line"><span class="attr">accessModes:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="string">ReadWriteMany</span> <span class="comment"># 权限需要和对应的pv相同</span></span><br><span class="line"><span class="attr">volumeMode:</span> <span class="string">Filesystem</span></span><br><span class="line"><span class="attr">resources:</span></span><br><span class="line">    <span class="attr">requests:</span></span><br><span class="line">    <span class="attr">storage:</span> <span class="string">2Gi</span> <span class="comment"># 资源要小于pv的</span></span><br><span class="line"><span class="attr">storageClassName:</span> <span class="string">slow</span> <span class="comment"># 名字要和对应的pv相同</span></span><br></pre></td></tr></table></figure>
+
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl create -f nfs-pvc.yml</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>查看pvc已经被构建成功，并且成功绑定到pv-001</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test get pvc</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/20/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%9B%9B%EF%BC%89%EF%BC%9APV%E5%92%8CPVC/2.png" class="" width="1">
+</li>
+<li><p>Pod绑定PVC，在Pod的挂载容器配置中，增加PVC挂载</p>
+  <figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">Pod</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line"><span class="attr">name:</span> <span class="string">test-pvc-pd</span></span><br><span class="line"><span class="attr">namespace:</span> <span class="string">&quot;zy-test&quot;</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line"><span class="attr">containers:</span></span><br><span class="line"><span class="bullet">-</span> <span class="attr">image:</span> <span class="string">nginx:1.7.9</span></span><br><span class="line">    <span class="attr">imagePullPolicy:</span> <span class="string">IfNotPresent</span></span><br><span class="line">    <span class="attr">name:</span> <span class="string">nginx-volume</span></span><br><span class="line">    <span class="attr">volumeMounts:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">mountPath:</span> <span class="string">/test-pd</span> <span class="comment"># 挂载到容器的哪个目录</span></span><br><span class="line">    <span class="attr">name:</span> <span class="string">test-volume</span> <span class="comment"># 挂载到哪个volume</span></span><br><span class="line"><span class="attr">volumes:</span></span><br><span class="line"><span class="bullet">-</span> <span class="attr">name:</span> <span class="string">test-volume</span></span><br><span class="line">    <span class="attr">persistentVolumeClaim:</span></span><br><span class="line">    <span class="attr">claimName:</span> <span class="string">nfs-pvc</span> <span class="comment"># 通过name绑定到指定的PVC</span></span><br></pre></td></tr></table></figure>
+
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl create -f nginx-pvc-pd.yml</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/20/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%9B%9B%EF%BC%89%EF%BC%9APV%E5%92%8CPVC/3.png" class="" width="1">
+</li>
+<li><p>查看pod信息</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">kubectl -n zy-test get po -o wide</span><br></pre></td></tr></table></figure>
+
+  <img src="/2023/07/20/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%9B%9B%EF%BC%89%EF%BC%9APV%E5%92%8CPVC/4.png" class="" width="1"></li>
+</ul>
+<h2 id="测试"><a href="#测试" class="headerlink" title="测试"></a>测试</h2><ul>
+<li><p>测试文件同步</p>
+  <figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">cd</span> /data/nfs/rw/test-pv/</span><br><span class="line"><span class="built_in">echo</span> <span class="string">&quot;success...^_^&quot;</span> &gt; index.html</span><br><span class="line">curl 10.244.249.34</span><br></pre></td></tr></table></figure>
+</li>
+<li><p>文件同步成功</p>
+  <img src="/2023/07/20/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%9B%9B%EF%BC%89%EF%BC%9APV%E5%92%8CPVC/5.png" class="" width="1"></li>
+</ul>
+
+    <p class="articleSlot"><span class="splitLine"></span><img class="give" src="/img/icons8-coin-96.png" loading="lazy"><img class="buyMeCoffee" src="/img/buymecoffe.jpg" loading="lazy"></p>
+
+  </article>
+
+  
+      
+    <div class="nexmoe-post-copyright">
+        <strong>本文作者：</strong>Jim Oblivion<br>
+        <strong>本文链接：</strong><a href="http://jimoblivion.github.io/2023/07/20/Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%9B%9B%EF%BC%89%EF%BC%9APV%E5%92%8CPVC/" title="http:&#x2F;&#x2F;jimoblivion.github.io&#x2F;2023&#x2F;07&#x2F;20&#x2F;Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%9B%9B%EF%BC%89%EF%BC%9APV%E5%92%8CPVC&#x2F;" target="_blank" rel="noopener">http:&#x2F;&#x2F;jimoblivion.github.io&#x2F;2023&#x2F;07&#x2F;20&#x2F;Kubernetes%E5%AE%9E%E6%88%98%E7%AC%94%E8%AE%B0%EF%BC%88%E5%8D%81%E5%9B%9B%EF%BC%89%EF%BC%9APV%E5%92%8CPVC&#x2F;</a><br>
+        
+            <strong>版权声明：</strong>本文采用 <a href="https://creativecommons.org/licenses/by-nc-sa/3.0/cn/deed.zh" target="_blank">CC BY-NC-SA 3.0 CN</a> 协议进行许可
+
+        
+    </div>
+
+
+  
+  
+  <div class="nexmoe-post-meta nexmoe-rainbow">
+   
+    
+        <a class="nexmoefont icon-tag-fill -none-link" href="/tags/k8s/" rel="tag">k8s</a> <a class="nexmoefont icon-tag-fill -none-link" href="/tags/pv/" rel="tag">pv</a> <a class="nexmoefont icon-tag-fill -none-link" href="/tags/pvc/" rel="tag">pvc</a>
+    
+</div>
+  
+  
+    <script async src="/js/copy-codeblock.js?v=1690205319713"></script>
+  
+
+  
+      <div class="nexmoe-post-footer">
+          放弃了就不该后悔，失去了就不该回忆。
+
+      </div>
+  
+</div></div><div class="nexmoe-post-right">    <div class="nexmoe-fixed">
+        <div class="nexmoe-tool">
+
+            
+
+            
+            
+            <button class="mdui-fab catalog" style="overflow:unset;">
+                <i class="nexmoefont icon-i-catalog"></i>
+                <div class="nexmoe-toc">
+                    <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8E%9F%E5%9B%A0"><span class="toc-number">1.</span> <span class="toc-text">原因</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9E%84%E5%BB%BA"><span class="toc-number">2.</span> <span class="toc-text">构建</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%9D%99%E6%80%81%E6%9E%84%E5%BB%BA"><span class="toc-number">2.1.</span> <span class="toc-text">静态构建</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%8A%A8%E6%80%81%E6%9E%84%E5%BB%BA"><span class="toc-number">2.2.</span> <span class="toc-text">动态构建</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BB%91%E5%AE%9A"><span class="toc-number">3.</span> <span class="toc-text">绑定</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BD%BF%E7%94%A8"><span class="toc-number">4.</span> <span class="toc-text">使用</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9B%9E%E6%94%B6%E7%AD%96%E7%95%A5"><span class="toc-number">5.</span> <span class="toc-text">回收策略</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BF%9D%E7%95%99"><span class="toc-number">5.1.</span> <span class="toc-text">保留</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%88%A0%E9%99%A4"><span class="toc-number">5.2.</span> <span class="toc-text">删除</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%9B%9E%E6%94%B6"><span class="toc-number">5.3.</span> <span class="toc-text">回收</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#PV%E7%9A%84%E7%8A%B6%E6%80%81"><span class="toc-number">6.</span> <span class="toc-text">PV的状态</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%B5%8B%E8%AF%95"><span class="toc-number">7.</span> <span class="toc-text">测试</span></a></li></ol>
+                </div>
+            </button>
+            
+
+            
+
+            <a href="#nexmoe-content" class="backtop toc-link" aria-label="Back To Top" title="top"><button class="mdui-fab mdui-ripple"><i class="nexmoefont icon-caret-top"></i></button></a>
+        </div>
+    </div>
+</div></div><div id="nexmoe-footer"><script src="https://fastly.jsdelivr.net/gh/JimOblivion/JimOblivion.github.io@v1.0.0/lib/animate/fish.js" defer></script><div id="footer-wrap"></div><!--!--></div><div><div id="nexmoe-search-space">
+	<div class="search-container">
+		<div class="search-header">
+			<div class="search-input-container">
+				<input
+					class="search-input"
+					type="text"
+					placeholder="搜索"
+					oninput="sinput();"
+				/>
+			</div>
+			<a class="search-close" onclick="sclose();">×</a>
+		</div>
+		<div class="search-body"></div>
+	</div>
+</div>
+</div><div><script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2058306854838448" crossorigin="anonymous"></script>
+</div></body></html>
